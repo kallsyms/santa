@@ -1,0 +1,13 @@
+[package]
+name = "santametricservice-rust"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+core-foundation = "0.9"
+futures = { version = "0.3" }
+security-framework = "^2.3.1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+xpc-connection = { git = "https://github.com/dfrankland/xpc-connection-rs", features = ["audit_token"] }

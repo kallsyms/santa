@@ -74,7 +74,7 @@ class Metrics : public std::enable_shared_from_this<Metrics> {
   void FlushMetrics();
   void ExportLocked(SNTMetricSet *metric_set);
 
-  MOLXPCConnection *metrics_connection_;
+  NSXPCConnection *metrics_connection_;
   dispatch_queue_t q_;
   dispatch_source_t timer_source_;
   uint64_t interval_;

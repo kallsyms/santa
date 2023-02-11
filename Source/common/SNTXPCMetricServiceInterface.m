@@ -29,13 +29,12 @@
 }
 
 + (NSString *)serviceID {
-  return @"com.google.santa.metricservice";
+  return @"com.google.santa.metricservice.rust";
 }
 
-+ (MOLXPCConnection *)configuredConnection {
-  MOLXPCConnection *c = [[MOLXPCConnection alloc] initClientWithName:[self serviceID]
-                                                          privileged:NO];
-  c.remoteInterface = [self metricServiceInterface];
++ (NSXPCConnection *)configuredConnection {
+  NSXPCConnection *c = [[NSXPCConnection alloc] initWithMachServiceName:[self serviceID] options:0];
+  c.remoteObjectInterface = [self metricServiceInterface];
   return c;
 }
 

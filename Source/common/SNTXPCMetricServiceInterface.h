@@ -45,6 +45,6 @@
 ///  Retrieve a pre-configured MOLXPCConnection for communicating with santametricservice.
 ///  Connections just needs any handlers set and then can be resumed and used.
 ///
-+ (MOLXPCConnection *)configuredConnection;
++ (NSXPCConnection *)configuredConnection;
 
 @end
