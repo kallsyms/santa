@@ -50,6 +50,35 @@ load(
 
 swift_rules_extra_dependencies()
 
+http_archive(
+    name = "rules_rust",
+    sha256 = "2466e5b2514772e84f9009010797b9cd4b51c1e6445bbd5b5e24848d90e6fb2e",
+    urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.18.0/rules_rust-v0.18.0.tar.gz"],
+)
+
+load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies", "rust_register_toolchains")
+
+rules_rust_dependencies()
+
+rust_register_toolchains()
+
+load("@rules_rust//crate_universe:repositories.bzl", "crate_universe_dependencies")
+
+crate_universe_dependencies()
+
+load("@rules_rust//crate_universe:defs.bzl", "crates_repository")
+
+crates_repository(
+    name = "santametricservice_crate_index",
+    cargo_lockfile = "//Source/santametricservice:Cargo.lock",
+    lockfile = "//Source/santametricservice:Cargo.Bazel.lock",
+    manifests = ["//Source/santametricservice:Cargo.toml"],
+)
+
+load("@santametricservice_crate_index//:defs.bzl", "crate_repositories")
+
+crate_repositories()
+
 # Hedron Bazel Compile Commands Extractor
 # Allows integrating with clangd
 # https://github.com/hedronvision/bazel-compile-commands-extractor

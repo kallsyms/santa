@@ -191,6 +191,10 @@ NSString *SNTMetricMakeStringFromMetricType(SNTMetricType metricType);
 - (NSDictionary *)export;
 @end
 
+#if __cplusplus
+extern "C" {
+#endif
+
 // Returns a human readble string from an SNTMetricFormat type
 NSString *SNTMetricStringFromMetricFormatType(SNTMetricFormatType format);
 
@@ -198,5 +202,9 @@ NSString *SNTMetricStringFromMetricFormatType(SNTMetricFormatType format);
  *  UTC time.
  */
 NSDictionary *SNTMetricConvertDatesToISO8601Strings(NSDictionary *metrics);
+
+#if __cplusplus
+}
+#endif
 
 NS_ASSUME_NONNULL_END

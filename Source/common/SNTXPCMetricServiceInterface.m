@@ -29,13 +29,11 @@
 }
 
 + (NSString *)serviceID {
-  return @"com.google.santa.metricservice.rust";
+  return @"com.google.santa.metricservice";
 }
 
-+ (NSXPCConnection *)configuredConnection {
-  NSXPCConnection *c = [[NSXPCConnection alloc] initWithMachServiceName:[self serviceID] options:0];
-  c.remoteObjectInterface = [self metricServiceInterface];
-  return c;
++ (xpc_connection_t)configuredConnection {
+  return xpc_connection_create_mach_service("com.google.santa.metricservice", NULL, 0);
 }
 
 @end

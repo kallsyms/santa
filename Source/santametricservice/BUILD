@@ -1,59 +1,26 @@
 load("@build_bazel_rules_apple//apple:macos.bzl", "macos_command_line_application")
-load("//:helper.bzl", "santa_unit_test")
+load("@santametricservice_crate_index//:defs.bzl", "aliases", "all_crate_deps")
+load("@rules_rust//rust:defs.bzl", "rust_static_library")
 
 package(
     default_visibility = ["//:santa_package_group"],
 )
 
-licenses(["notice"])
-
-objc_library(
+# TODO(nickmg): can this be a normal rust_library with suggestions from
+# https://github.com/bazelbuild/rules_rust/issues/637
+# (see also https://github.com/bazelbuild/rules_rust/pull/1490)
+# (currently dies because "___rust_alloc" & friends isn't linked)
+rust_static_library(
     name = "SNTMetricServiceLib",
-    srcs = [
-        "SNTMetricService.h",
-        "SNTMetricService.m",
-        "main.m",
-    ],
-    hdrs = [
-        "SNTMetricService.h",
-    ],
-    deps = [
-        "//Source/common:SNTConfigurator",
-        "//Source/common:SNTDropRootPrivs",
-        "//Source/common:SNTLogging",
-        "//Source/common:SNTMetricSet",
-        "//Source/common:SNTXPCMetricServiceInterface",
-        "//Source/santametricservice/Formats:SNTMetricMonarchJSONFormat",
-        "//Source/santametricservice/Formats:SNTMetricRawJSONFormat",
-        "//Source/santametricservice/Writers:SNTMetricFileWriter",
-        "//Source/santametricservice/Writers:SNTMetricHTTPWriter",
-        "@MOLCodesignChecker",
-        "@MOLXPCConnection",
-    ],
-)
-
-santa_unit_test(
-    name = "SNTMetricServiceTest",
-    srcs = ["SNTMetricServiceTest.m"],
-    structured_resources = ["//Source/santametricservice/Formats:testdata"],
-    deps = [
-        ":SNTMetricServiceLib",
-        "//Source/common:SNTCommonEnums",
-        "//Source/common:SNTConfigurator",
-        "//Source/common:SNTMetricSet",
-        "//Source/santametricservice/Formats:SNTMetricFormatTestHelper",
-        "@MOLAuthenticatingURLSession",
-        "@OCMock",
-    ],
-)
-
-test_suite(
-    name = "unit_tests",
-    tests = [
-        ":SNTMetricServiceTest",
-        "//Source/santametricservice/Formats:format_tests",
-        "//Source/santametricservice/Writers:writer_tests",
-    ],
+    srcs = glob(["src/*.rs"]),
+    edition = "2021",
+    aliases = aliases(),
+    deps = all_crate_deps(
+        normal = True,
+    ),
+    proc_macro_deps = all_crate_deps(
+        proc_macro = True,
+    ),
 )
 
 macos_command_line_application(
@@ -74,5 +41,6 @@ macos_command_line_application(
     visibility = ["//:santa_package_group"],
     deps = [
         ":SNTMetricServiceLib",
+        "//Source/common:SNTConfigurator",
     ],
 )

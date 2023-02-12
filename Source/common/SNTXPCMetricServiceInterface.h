@@ -14,8 +14,6 @@
 
 #import <Foundation/Foundation.h>
 
-#import <MOLXPCConnection/MOLXPCConnection.h>
-
 ///  Protocol implemented by the metric service and utilized by santad
 ///  exporting metrics to a monitoring system.
 @protocol SNTMetricServiceXPC
@@ -42,9 +40,9 @@
 + (NSString *)serviceID;
 
 ///
-///  Retrieve a pre-configured MOLXPCConnection for communicating with santametricservice.
+///  Retrieve a pre-configured NSXPCConnection for communicating with santametricservice.
 ///  Connections just needs any handlers set and then can be resumed and used.
 ///
-+ (NSXPCConnection *)configuredConnection;
++ (xpc_connection_t)configuredConnection;
 
 @end

@@ -171,14 +171,18 @@ Metrics::~Metrics() {
 }
 
 void Metrics::EstablishConnection() {
-  NSXPCConnection *metrics_connection = [SNTXPCMetricServiceInterface configuredConnection];
-  metrics_connection.invalidationHandler = ^{
-    dispatch_sync(dispatch_get_main_queue(), ^{
-      LOGW(@"Metrics service connection invalidated. Reconnecting...");
-      EstablishConnection();
-    });
-  };
-  [metrics_connection resume];
+  xpc_connection_t metrics_connection = [SNTXPCMetricServiceInterface configuredConnection];
+  xpc_connection_set_event_handler(metrics_connection, ^(xpc_object_t object) {
+    LOGW(@"metrics event handler!");
+    if (xpc_get_type(object) == XPC_TYPE_ERROR) {
+      dispatch_sync(dispatch_get_main_queue(), ^{
+        LOGW(@"Metrics service connection invalidated. Reconnecting...");
+        EstablishConnection();
+      });
+    }
+  });
+  xpc_connection_set_finalizer_f(metrics_connection, xpc_finalizer_t(xpc_release));
+  xpc_connection_activate(metrics_connection);
   metrics_connection_ = metrics_connection;
 }
 
@@ -190,7 +194,14 @@ void Metrics::Export() {
 
 void Metrics::ExportLocked(SNTMetricSet *metric_set) {
   FlushMetrics();
-  [[metrics_connection_ remoteObjectProxy] exportForMonitoring:[metric_set export]];
+  NSDictionary *metrics = SNTMetricConvertDatesToISO8601Strings([metric_set export]);
+  // TODO: proto
+  NSData *jd = [NSJSONSerialization dataWithJSONObject:metrics options:0 error:nil];
+  xpc_object_t j = xpc_data_create(jd.bytes, jd.length);
+  // The sent message has to be a dict
+  xpc_object_t dict = xpc_dictionary_create_empty();
+  xpc_dictionary_set_value(dict, "json", j);
+  xpc_connection_send_message(metrics_connection_, dict);
 }
 
 void Metrics::FlushMetrics() {
