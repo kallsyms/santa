@@ -11,16 +11,30 @@ package(
 # (see also https://github.com/bazelbuild/rules_rust/pull/1490)
 # (currently dies because "___rust_alloc" & friends isn't linked)
 rust_static_library(
-    name = "SNTMetricServiceLib",
+    name = "santametricservice_lib",
     srcs = glob(["src/*.rs"]),
+    crate_root = "src/main.rs",
     edition = "2021",
     aliases = aliases(),
     deps = all_crate_deps(
         normal = True,
-    ),
+    ) + [
+        "//Source/common:SNTConfigurator",
+    ],
     proc_macro_deps = all_crate_deps(
         proc_macro = True,
     ),
+)
+
+# TODO: bad hack
+# these aren't included properly by the rust static lib, so we have to do it ourselves
+objc_library(
+    name = "frameworks",
+    hdrs = [],
+    sdk_frameworks = [
+        "Security",
+        "IOKit",
+    ],
 )
 
 macos_command_line_application(
@@ -40,7 +54,7 @@ macos_command_line_application(
     version = "//:version",
     visibility = ["//:santa_package_group"],
     deps = [
-        ":SNTMetricServiceLib",
-        "//Source/common:SNTConfigurator",
+        ":santametricservice_lib",
+        ":frameworks",
     ],
 )
