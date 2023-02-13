@@ -12,7 +12,7 @@
 ///    See the License for the specific language governing permissions and
 ///    limitations under the License.
 
-#import "Source/santametricservice/Formats/SNTMetricMonarchJSONFormat.h"
+#import "Source/santametricservice-objc/Formats/SNTMetricMonarchJSONFormat.h"
 
 #import "Source/common/SNTLogging.h"
 #import "Source/common/SNTMetricSet.h"

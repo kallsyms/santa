@@ -1,6 +1,6 @@
 load("@build_bazel_rules_apple//apple:macos.bzl", "macos_command_line_application")
 load("@santametricservice_crate_index//:defs.bzl", "aliases", "all_crate_deps")
-load("@rules_rust//rust:defs.bzl", "rust_static_library")
+load("@rules_rust//rust:defs.bzl", "rust_static_library", "rust_test")
 
 package(
     default_visibility = ["//:santa_package_group"],
@@ -34,6 +34,7 @@ objc_library(
     sdk_frameworks = [
         "Security",
         "IOKit",
+        "Foundation",
     ],
 )
 
@@ -57,4 +58,11 @@ macos_command_line_application(
         ":santametricservice_lib",
         ":frameworks",
     ],
+)
+
+rust_test(
+    name = "santametricservice_tests",
+    crate = ":santametricservice_lib",
+    deps = [":frameworks"],
+    data = glob(["testdata/*.json"]),
 )

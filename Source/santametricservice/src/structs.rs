@@ -1,17 +1,18 @@
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum MetricValueData {
+    Bool(bool),
     Number(f64),
     String(String),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MetricValue {
-    pub created: DateTime<Utc>, 
+    pub created: DateTime<Utc>,
     pub data: MetricValueData,
     pub last_updated: DateTime<Utc>,
     pub value: String,
@@ -27,4 +28,5 @@ pub struct Metric {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MetricSet {
     pub metrics: HashMap<String, Metric>,
+    pub root_labels: HashMap<String, String>, // TODO: should this be String, MetricValueData?
 }

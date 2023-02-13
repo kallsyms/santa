@@ -14,7 +14,7 @@
 
 #import <Foundation/Foundation.h>
 
-#import "Source/santametricservice/Formats/SNTMetricFormat.h"
+#import "Source/santametricservice-objc/Formats/SNTMetricFormat.h"
 
 @interface SNTMetricMonarchJSONFormat : NSObject <SNTMetricFormat>
 @end

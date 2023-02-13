@@ -7,6 +7,7 @@ use std::io::prelude::*;
 use std::time::Duration;
 use std::{error::Error, ffi::CString};
 use xpc_connection::{Message, MessageError, XpcClient, XpcListener};
+use chrono::Utc;
 
 mod structs;
 use structs::*;
@@ -82,7 +83,7 @@ async fn handle_client(mut client: XpcClient) {
             // rawjson
             1 => serde_json::to_string(&metrics).expect("Unable to serialize metrics"),
             // monarchjson
-            2 => serde_json::to_string(&monarch::convert(&metrics))
+            2 => serde_json::to_string(&monarch::convert(&metrics, Utc::now()))
                 .expect("Unable to serialize metrics"),
             _ => panic!("Unsupported metrics format {}", metrics_format),
         };
@@ -101,7 +102,7 @@ async fn handle_client(mut client: XpcClient) {
                 writeln!(file, "{}", formatted_metrics).unwrap();
             }
             "http" => {
-                let _ = reqwest::Client::builder()
+                let resp = reqwest::Client::builder()
                     .timeout(Duration::from_secs(metrics_timeout))
                     .build()
                     .unwrap()
@@ -110,6 +111,7 @@ async fn handle_client(mut client: XpcClient) {
                     .body(formatted_metrics)
                     .send()
                     .await;  // TODO: log err
+                println!("resp: {:?}", resp);
             }
             _ => panic!("Unsupported URL scheme {}", metrics_url.scheme()),
         }
@@ -118,6 +120,7 @@ async fn handle_client(mut client: XpcClient) {
     println!("The connection was invalidated.");
 }
 
+#[cfg(not(test))] // TODO(nickmg): bad hack
 #[no_mangle] // TODO(nickmg): any way to not need this?
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<(), Box<dyn Error>> {

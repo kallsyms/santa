@@ -2,7 +2,7 @@ use crate::structs::*;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum Value {
     #[serde(rename = "boolValue")]
     Bool(bool),
@@ -14,60 +14,71 @@ pub enum Value {
     String(String),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct FieldValue {
     name: String,
     #[serde(flatten)]
     value: Value,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct MetricData {
     // TODO: do we need to ensure these only go to 3 digits after the decimal?
     #[serde(rename = "startTimestamp")]
     start_timestamp: DateTime<Utc>,
     #[serde(rename = "endTimestamp")]
     end_timestamp: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     field: Option<Vec<FieldValue>>,
     #[serde(flatten)]
     value: Value,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct FieldDescriptor {
     name: String,
     #[serde(rename = "fieldType")]
     field_type: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct MetricsData {
     #[serde(rename = "metricName")]
     metric_name: String,
     description: String,
     #[serde(rename = "fieldDescriptor")]
-    field_descriptor: Vec<FieldDescriptor>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    field_descriptor: Option<Vec<FieldDescriptor>>,
     #[serde(rename = "valueType")]
     value_type: String,
-    #[serde(rename = "streamKind")]
+    #[serde(rename = "streamKind", default)]
+    #[serde(skip_serializing_if = "String::is_empty")]
     stream_kind: String,
     data: Vec<MetricData>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct RootLabel {
+    key: String,
+    #[serde(flatten)]
+    value: Value,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct MetricsCollection {
     #[serde(rename = "metricsDataSet")]
     dataset: Vec<MetricsData>,
-    //rootLabels
+    #[serde(rename = "rootLabels")]
+    root_labels: Vec<RootLabel>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct CollectionWrapper {
     #[serde(rename = "metricsCollection")]
-    collection: MetricsCollection,
+    collection: Vec<MetricsCollection>,
 }
 
-fn encode_data(metric: &Metric) -> Vec<MetricData> {
+fn encode_data(metric: &Metric, end_timestamp: DateTime<Utc>) -> Vec<MetricData> {
     let mut datas = vec![];
     for (field_name, entries) in &metric.fields {
         for entry in entries {
@@ -75,24 +86,27 @@ fn encode_data(metric: &Metric) -> Vec<MetricData> {
             let mut number_value: Option<f64> = None;
             let mut string_value: Option<String> = None;
             match &entry.data {
+                MetricValueData::Bool(b) => number_value = Some(*b as i64 as f64),
                 MetricValueData::Number(n) => number_value = Some(*n),
                 MetricValueData::String(s) => string_value = Some(s.clone()),
             }
 
             let data = MetricData {
                 start_timestamp: entry.created,
-                end_timestamp: Utc::now(),
+                end_timestamp: end_timestamp,
                 field: if field_name == "" {
                     None
                 } else {
-                    Some(field_name
-                        .split(",")
-                        .zip(entry.value.split(","))
-                        .map(|(name, value)| FieldValue {
-                            name: name.to_string(),
-                            value: Value::String(value.to_string()),
-                        })
-                        .collect())
+                    Some(
+                        field_name
+                            .split(",")
+                            .zip(entry.value.split(","))
+                            .map(|(name, value)| FieldValue {
+                                name: name.to_string(),
+                                value: Value::String(value.to_string()),
+                            })
+                            .collect(),
+                    )
                 },
                 value: match metric.r#type {
                     1 | 5 => Value::Bool(number_value.unwrap() as i64 != 0),
@@ -110,7 +124,7 @@ fn encode_data(metric: &Metric) -> Vec<MetricData> {
     datas
 }
 
-fn encode_field_descriptors(metric: &Metric) -> Vec<FieldDescriptor> {
+fn encode_field_descriptors(metric: &Metric) -> Option<Vec<FieldDescriptor>> {
     let mut fds = vec![];
     for field in metric.fields.keys() {
         if field != "" {
@@ -122,10 +136,15 @@ fn encode_field_descriptors(metric: &Metric) -> Vec<FieldDescriptor> {
             }
         }
     }
-    fds
+    // TODO: Is this correct?
+    if fds.len() == 0 {
+        None
+    } else {
+        Some(fds)
+    }
 }
 
-fn format_metric(name: &str, metric: &Metric) -> MetricsData {
+fn format_metric(name: &str, metric: &Metric, end_timestamp: DateTime<Utc>) -> MetricsData {
     MetricsData {
         metric_name: name.to_string(),
         description: metric.description.clone(),
@@ -146,18 +165,53 @@ fn format_metric(name: &str, metric: &Metric) -> MetricsData {
             _ => panic!("Invalid metric type {}", metric.r#type),
         }
         .to_string(),
-        data: encode_data(metric),
+        data: encode_data(metric, end_timestamp),
     }
 }
 
-pub fn convert(metrics: &MetricSet) -> CollectionWrapper {
+pub fn convert(metrics: &MetricSet, end_timestamp: DateTime<Utc>) -> CollectionWrapper {
+    let mut root_labels: Vec<RootLabel> = metrics
+        .root_labels
+        .iter()
+        .map(|(k, v)| RootLabel {
+            key: k.clone(),
+            value: Value::String(v.clone()),
+        })
+        .collect();
+    root_labels.sort_by(|a, b| a.key.cmp(&b.key));
+
+    let mut dataset: Vec<MetricsData> = metrics
+        .metrics
+        .iter()
+        .map(|(k, v)| format_metric(k, v, end_timestamp))
+        .collect();
+    dataset.sort_by(|a, b| a.metric_name.cmp(&b.metric_name));
+
     CollectionWrapper {
-        collection: MetricsCollection {
-            dataset: metrics
-                .metrics
-                .iter()
-                .map(|(k, v)| format_metric(k, v))
-                .collect(),
-        },
+        collection: vec![MetricsCollection {
+            root_labels,
+            dataset,
+        }],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::monarch::{convert, CollectionWrapper};
+    use crate::structs::*;
+    use chrono::{TimeZone, Utc};
+
+    #[test]
+    fn test_monarch() {
+        let want: CollectionWrapper = serde_json::from_str(
+            &std::fs::read_to_string("Source/santametricservice/testdata/monarch.json").unwrap(),
+        )
+        .unwrap();
+        let input: MetricSet = serde_json::from_str(
+            &std::fs::read_to_string("Source/santametricservice/testdata/input.json").unwrap(),
+        )
+        .unwrap();
+        let got = convert(&input, Utc.timestamp(1631826490, 0));
+        assert_eq!(want, got);
     }
 }

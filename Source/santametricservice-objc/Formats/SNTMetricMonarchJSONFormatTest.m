@@ -2,8 +2,9 @@
 
 #import <Foundation/Foundation.h>
 #import <OCMock/OCMock.h>
-#import "Source/santametricservice/Formats/SNTMetricFormatTestHelper.h"
-#import "Source/santametricservice/Formats/SNTMetricMonarchJSONFormat.h"
+#import "Source/santametricservice-objc/Formats/SNTMetricFormatTestHelper.h"
+#import "Source/santametricservice-objc/Formats/SNTMetricMonarchJSONFormat.h"
+#import "Source/common/SNTMetricSet.h"
 
 @interface SNTMetricMonarchJSONFormatTest : XCTestCase
 @end
@@ -16,6 +17,8 @@
     .andReturn([NSDate dateWithTimeIntervalSince1970:1631826490]);  // 2021-09-16 21:08:10Z
 
   NSDictionary *validMetricsDict = [SNTMetricFormatTestHelper createValidMetricsDictionary];
+  NSData *asdf = [NSJSONSerialization dataWithJSONObject:SNTMetricConvertDatesToISO8601Strings(validMetricsDict) options:0 error:nil];
+  [asdf writeToFile:@"/tmp/out.json" atomically:YES];
   SNTMetricMonarchJSONFormat *formatter = [[SNTMetricMonarchJSONFormat alloc] init];
   NSError *err = nil;
   NSArray<NSData *> *output = [formatter convert:validMetricsDict error:&err];

@@ -15,7 +15,7 @@
 #import <Foundation/Foundation.h>
 
 #import "Source/common/SNTMetricSet.h"
-#import "Source/santametricservice/Formats/SNTMetricFormatTestHelper.h"
+#import "Source/santametricservice-objc/Formats/SNTMetricFormatTestHelper.h"
 
 @implementation SNTMetricFormatTestHelper
 + (NSDictionary *)convertDatesToFixedDateWithExportDict:(NSMutableDictionary *)exportDict {
