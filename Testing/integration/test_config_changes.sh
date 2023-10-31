@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+set -xe
 
 # TODO(nickmg): These `santactl status`s should be run with sudo to mirror the others,
 # however currently (2022-10-27) non-root status is what correctly reads from provisioning profile configuration.

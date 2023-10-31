@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+set -xe
 
 bazel run //Testing/integration:install_profile -- Testing/integration/configs/default.mobileconfig
 

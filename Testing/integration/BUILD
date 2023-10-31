@@ -42,3 +42,22 @@ run_command(
     name = "dismiss_usb_popup",
     cmd = "osascript $${BUILD_WORKSPACE_DIRECTORY}/Testing/integration/dismiss_usb_popup.scpt",
 )
+
+run_command(
+    name = "reset_vm",
+    cmd = """
+sudo killall moroz || true
+
+sudo $${BUILD_WORKSPACE_DIRECTORY}/Conf/uninstall.sh
+
+sudo systemextensionsctl reset &  # Blocks on a password dialog
+sleep 3
+osascript -e "tell application \\"System Events\\"
+    tell process \\"SecurityAgent\\"
+        set value of text field 2 of window 1 to system attribute \\"VM_PASSWORD\\"
+        click button \\"OK\\" of window 1
+    end tell
+end tell
+"
+""",
+)
