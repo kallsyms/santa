@@ -1,0 +1,13 @@
+* Use flyweight for cred, program
+* Tests
+* platform impls for struct pid, struct cred, struct program should be platform independent enough
+  * windows?
+* HandleExec taking a struct cred, program vs. taking es_event_t?
+  * I think taking populated structs is cleaner - converters can be included in the library, but not inline with the mutation methods
+* HandleExec should replace item in map entirely with copy to preserve correct parent_ process info?
+* track start/end time? or is linux-specific struct pid enough?
+* annotation flow
+  * evaluator func which specifies fork and/or exec propagation for the given annotation
+  * how are annotations exposed?
+
+* in linhelm, does our Process end up being the canonical internal implementation instead of proto?
