@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package process_tree.pb;
+
+// User ID and associated username
+message UserInfo {
+  optional int32 uid = 1;
+  optional string name = 2;
+}
+
+// Group ID and associated group name
+message GroupInfo {
+  optional int32 gid = 1;
+  optional string name = 2;
+}
+
+// A process is uniquely identified on macOS by its pid and pidversion
+message ProcessID {
+  optional int32 pid = 1;
+  optional int32 pidversion = 2;
+}
+
+message Annotation {
+  enum Originator {
+    UNSPECIFIED = 0;
+    LAUNCHD = 1;
+    CRON = 2;
+  }
+  oneof {
+    bool curl_sh = 1;
+    Originator ancestor = 2;
+  }
+}
+
+// Process information
+message ProcessInfo {
+  // Process ID of the process
+  optional ProcessID id = 1;
+
+  // Process ID of the parent process
+  optional ProcessID parent_id = 2;
+
+  // Effective user/group info
+  optional UserInfo effective_user = 7;
+  optional GroupInfo effective_group = 8;
+
+  repeated Annotation annotations = 10;
+}

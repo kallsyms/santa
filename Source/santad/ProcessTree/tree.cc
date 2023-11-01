@@ -4,8 +4,10 @@
 
 #include <functional>
 #include <memory>
+#include <typeinfo>
 #include <vector>
 
+#include "Source/santad/ProcessTree/Annotations/base.h"
 #include "Source/santad/ProcessTree/process.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
@@ -66,6 +68,9 @@ void ProcessTree::HandleFork(const Process &parent, const struct pid new_pid) {
   Process child = parent;
   child.pid_ = new_pid;
   child.parent_ = map_[parent.pid_.pid];
+  for (auto annotator : annotators_) {
+    annotator.ProcessFork(this, parent, child);
+  }
   map_.insert(new_pid.pid, std::make_shared<Process>(child));
 }
 
@@ -75,6 +80,9 @@ void ProcessTree::HandleExec(const Process &p, const struct program prog,
   Process new_proc = p;
   new_proc.cred_ = c;
   new_proc.program_ = prog;
+  for (auto annotator : annotators_) {
+    annotator.ProcessExec(this, p, new_proc);
+  }
   map_[p.pid_.pid] = new_proc;
 }
 
@@ -85,13 +93,32 @@ void ProcessTree::HandleExit(const Process &p) {
 
 /*
 ---
+Annotation get/set
+---
+*/
+
+void ProcessTree::AnnotateProcess(const Process &p, Annotator a) {
+  p.annotations_[typeid(a)] = a;
+}
+
+std::optional<const Annotator> ProcessTree::GetAnnotation(
+    const Process &p, std::type_info annotator_type) {
+  auto it = p.annotations_.find(annotator_type);
+  if (it == p.annotations_.end()) {
+    return std::nullopt;
+  }
+  return *it;
+}
+
+/*
+---
 Tree inspection methods
 ---
 */
 
-std::vector<std::shared_ptr<Process>> ProcessTree::RootSlice(
-    std::shared_ptr<Process> p) {
-  std::vector<std::shared_ptr<Process>> slice;
+std::vector<std::shared_ptr<const Process>> ProcessTree::RootSlice(
+    std::shared_ptr<const Process> p) {
+  std::vector<std::shared_ptr<const Process>> slice;
   while (p) {
     slice.push_back(p);
     p = p->parent_;
@@ -113,6 +140,19 @@ void ProcessTree::Iterate(
   for (auto &p : procs) {
     f(p);
   }
+}
+
+std::optional<std::shared_ptr<const Process>> ProcessTree::Get(
+    const struct pid target) {
+  auto it = map_.find(target.pid);
+  if (it == map_.end()) {
+    return std::nullopt;
+  }
+  return *it;
+}
+
+std::shared_ptr<const Process> ProcessTree::GetParent(const Process &p) {
+  return p.parent_;
 }
 
 }  // namespace process_tree

@@ -5,9 +5,12 @@
 
 #include <memory>
 #include <string>
+#include <typeinfo>
 #include <vector>
 
+#include "Source/santad/ProcessTree/Annotations/base.h"
 #include "Source/santad/ProcessTree/tree.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/time/time.h"
 
 namespace process_tree {
@@ -45,17 +48,20 @@ class Process {
         flags_(flags) {}
   static absl::StatusOr<Process> LoadPID(pid_t pid);
 
+  // Const "attributes" are public
+  const struct pid pid_;
+  const std::shared_ptr<const cred> effective_cred_;
+  const std::shared_ptr<const program> program_;
+
  private:
   friend class ProcessTree;
 
-  const struct pid pid_;
-  std::shared_ptr<const cred> effective_cred_;
-  std::shared_ptr<const program> program_;
-
+  // This is not API.
+  // The tree helper methods are the API, and we just happen to implement
+  // annotation storage and the parent relation in memory on the process right
+  // now.
+  absl::flat_hash_map<std::type_info, Annotator> annotations_;
   std::shared_ptr<const Process> parent_;
-  uint64_t flags_;
-  uint64_t exec_flag_mask_;
-  uint64_t fork_flag_mask_;
 };
 
 }  // namespace process_tree
