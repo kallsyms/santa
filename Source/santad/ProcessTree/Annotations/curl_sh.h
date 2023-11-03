@@ -4,6 +4,7 @@
 #include <optional>
 
 #include "Source/santad/ProcessTree/Annotations/base.h"
+#include "Source/santad/ProcessTree/process_tree.pb.h"
 
 namespace process_tree {
 
@@ -11,7 +12,7 @@ enum class CurlShState {
   kNone = 0,
   kSeenCurl = 1,
   kSeenBoth = 2,
-}
+};
 
 class CurlShAnnotator : public Annotator {
  public:
@@ -23,11 +24,11 @@ class CurlShAnnotator : public Annotator {
   void AnnotateExec(ProcessTree &tree, const Process &orig_process,
                     const Process &new_process);
 
-  std::optional<pb::Annotation> Proto();
+  std::optional<pb::Annotations> Proto();
 
  private:
   CurlShState state_;
-}
+};
 
 }  // namespace process_tree
 

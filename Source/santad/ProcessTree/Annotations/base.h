@@ -3,9 +3,12 @@
 
 #include <optional>
 
-#include "Source/santad/ProcessTree/process.h"
+#include "Source/santad/ProcessTree/process_tree.pb.h"
 
 namespace process_tree {
+
+class ProcessTree;
+class Process;
 
 class Annotator {
  public:
@@ -13,8 +16,9 @@ class Annotator {
                             const Process &child);
   virtual void AnnotateExec(ProcessTree &tree, const Process &orig_process,
                             const Process &new_process);
-  virtual std::optional<pb::Annotation> Proto();
-}
+  virtual std::optional<pb::Annotations> Proto();
+  virtual ~Annotator();
+};
 
 }  // namespace process_tree
 

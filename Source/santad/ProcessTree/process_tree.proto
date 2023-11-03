@@ -20,16 +20,15 @@ message ProcessID {
   optional int32 pidversion = 2;
 }
 
-message Annotation {
+message Annotations {
   enum Originator {
     UNSPECIFIED = 0;
     LAUNCHD = 1;
     CRON = 2;
   }
-  oneof {
-    bool curl_sh = 1;
-    Originator ancestor = 2;
-  }
+
+  bool curl_sh = 1;
+  Originator ancestor = 2;
 }
 
 // Process information
@@ -44,5 +43,5 @@ message ProcessInfo {
   optional UserInfo effective_user = 7;
   optional GroupInfo effective_group = 8;
 
-  repeated Annotation annotations = 10;
+  Annotations annotations = 10;
 }

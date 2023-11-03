@@ -4,6 +4,7 @@
 
 #include <functional>
 #include <memory>
+#include <typeindex>
 #include <typeinfo>
 #include <vector>
 
@@ -31,9 +32,12 @@ absl::Status ProcessTree::Backfill() {
     return absl::InternalError("proc_listpids failed");
   }
 
+  // TODO: topo-sort
   for (pid_t pid : pids) {
-    auto proc = Process::LoadPID(pid);
-    if (proc.ok()) {
+    auto proc_status = Process::LoadPID(pid);
+    if (proc_status.ok()) {
+      auto unlinked_proc = proc_status.value();
+
       // Determine ppid
       // Alternatively, there's a sysctl interface:
       //  https://chromium.googlesource.com/chromium/chromium/+/master/base/process_util_openbsd.cc#32
@@ -43,47 +47,54 @@ absl::Status ProcessTree::Backfill() {
         continue;
       };
 
+      std::shared_ptr<const Process> parent = map_[bsdinfo.pbi_ppid];
+
       // We could also pull e.g. start time, pgid, associated tty, etc. from
       // bsdinfo here.
+      auto proc = std::make_shared<Process>(
+          Process(unlinked_proc.pid_,
+                  // Re-use shared pointers from parent if value equivalent
+                  *(unlinked_proc.effective_cred_) == *(parent->effective_cred_)
+                      ? parent->effective_cred_
+                      : unlinked_proc.effective_cred_,
+                  *(unlinked_proc.program_) == *(parent->program_)
+                      ? parent->program_
+                      : unlinked_proc.program_,
+                  parent));
+      map_.emplace(pid, proc);
 
-      proc.parent_ = map_[bsdinfo.pbi_ppid];
-      proc.flags_ = proc.parent_.flags_ & proc.parent_.fork_flag_mask_ &
-                    proc.parent_.exec_flag_mask_;
-      for (size_t i = 0; i < annotators_.size(); i++) {
-        auto propagation_rule = annotators_[i](proc);
-        proc.fork_flag_mask_ = (proc.fork_flag_mask_ & ~(1 << i)) |
-                               ((uint64_t)propagation_rule.on_fork << i);
-        proc.exec_flag_mask_ = (proc.exec_flag_mask_ & ~(1 << i)) |
-                               ((uint64_t)propagation_rule.on_exec << i);
+      for (auto &annotator : annotators_) {
+        annotator.AnnotateFork(*this, *(proc->parent_), *proc);
+        if (proc->program_ != proc->parent_->program_) {
+          annotator.AnnotateExec(*this, *(proc->parent_), *proc);
+        }
       }
-      map_.insert(pid, std::make_shared<Process>(proc));
     }
   }
 
   return absl::OkStatus();
 }
 
-void ProcessTree::HandleFork(const Process &parent, const struct pid new_pid) {
+void ProcessTree::HandleFork(const Process &parent, const pid new_pid) {
   absl::MutexLock lock(&mtx_);
-  Process child = parent;
-  child.pid_ = new_pid;
-  child.parent_ = map_[parent.pid_.pid];
+  auto child = std::make_shared<Process>(
+      new_pid, parent.effective_cred_, parent.program_, map_[parent.pid_.pid]);
+  map_.emplace(new_pid.pid, child);
   for (auto annotator : annotators_) {
-    annotator.ProcessFork(this, parent, child);
+    annotator.AnnotateFork(*this, parent, *child);
   }
-  map_.insert(new_pid.pid, std::make_shared<Process>(child));
 }
 
-void ProcessTree::HandleExec(const Process &p, const struct program prog,
-                             const struct cred c) {
+void ProcessTree::HandleExec(const Process &p, const program prog,
+                             const cred c) {
   absl::MutexLock lock(&mtx_);
-  Process new_proc = p;
-  new_proc.cred_ = c;
-  new_proc.program_ = prog;
+  auto new_proc = std::make_shared<Process>(
+      p.pid_, std::make_shared<const cred>(c),
+      std::make_shared<const program>(prog), p.parent_);
+  map_.emplace(p.pid_.pid, new_proc);
   for (auto annotator : annotators_) {
-    annotator.ProcessExec(this, p, new_proc);
+    annotator.AnnotateExec(*this, p, *new_proc);
   }
-  map_[p.pid_.pid] = new_proc;
 }
 
 void ProcessTree::HandleExit(const Process &p) {
@@ -97,17 +108,19 @@ Annotation get/set
 ---
 */
 
-void ProcessTree::AnnotateProcess(const Process &p, Annotator a) {
-  p.annotations_[typeid(a)] = a;
+void ProcessTree::AnnotateProcess(const Process &p, Annotator &&a) {
+  absl::MutexLock lock(&mtx_);
+  map_[p.pid_.pid]->annotations_.emplace(
+      std::type_index(typeid(a)), std::make_unique<Annotator>(std::move(a)));
 }
 
 std::optional<const Annotator> ProcessTree::GetAnnotation(
-    const Process &p, std::type_info annotator_type) {
-  auto it = p.annotations_.find(annotator_type);
+    const Process &p, const std::type_info annotator_type) {
+  auto it = p.annotations_.find(std::type_index(annotator_type));
   if (it == p.annotations_.end()) {
     return std::nullopt;
   }
-  return *it;
+  return *(it->second);
 }
 
 /*
@@ -127,11 +140,11 @@ std::vector<std::shared_ptr<const Process>> ProcessTree::RootSlice(
 }
 
 void ProcessTree::Iterate(
-    std::function<void(std::shared_ptr<const Process>)> f) {
+    std::function<void(std::shared_ptr<const Process> p)> f) {
   std::vector<std::shared_ptr<const Process>> procs;
-  procs.reserve(map_.size());
   {
     absl::MutexLock lock(&mtx_);
+    procs.reserve(map_.size());
     for (auto &[_, proc] : map_) {
       procs.push_back(proc);
     }
@@ -143,12 +156,13 @@ void ProcessTree::Iterate(
 }
 
 std::optional<std::shared_ptr<const Process>> ProcessTree::Get(
-    const struct pid target) {
+    const pid target) {
+  absl::MutexLock lock(&mtx_);
   auto it = map_.find(target.pid);
   if (it == map_.end()) {
     return std::nullopt;
   }
-  return *it;
+  return it->second;
 }
 
 std::shared_ptr<const Process> ProcessTree::GetParent(const Process &p) {

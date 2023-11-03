@@ -2,7 +2,7 @@
 
 #include <optional>
 
-#include "Source/santad/ProcessTree/tree.h"
+#include "Source/santad/ProcessTree/process_tree.pb.h"
 
 namespace process_tree {
 void OriginatorAnnotator::AnnotateFork(ProcessTree &tree, const Process &parent,
@@ -14,12 +14,15 @@ void OriginatorAnnotator::AnnotateFork(ProcessTree &tree, const Process &parent,
     return;
   }
 
-  if (parent.program_.executable == "/sbin/launchd") {
+  if (parent.program_->executable == "/sbin/launchd") {
     tree.AnnotateProcess(
-        child, OriginatorAnnotator(pb::Annotation::Originator::LAUNCHD));
-  } else if (parent.program_.executable == "/usr/sbin/cron") {
-    tree.AnnotateProcess(child,
-                         OriginatorAnnotator(pb::Annotation::Originator::CRON));
+        child,
+        OriginatorAnnotator(
+            pb::Annotations::Originator::Annotations_Originator_LAUNCHD));
+  } else if (parent.program_->executable == "/usr/sbin/cron") {
+    tree.AnnotateProcess(
+        child, OriginatorAnnotator(
+                   pb::Annotations::Originator::Annotations_Originator_CRON));
   }
 }
 
@@ -33,8 +36,8 @@ void OriginatorAnnotator::AnnotateExec(ProcessTree &tree,
   }
 }
 
-std::optional<pb::Annotation> OriginatorAnnotator::Proto() {
-  auto annotation = pb::Annotation();
+std::optional<pb::Annotations> OriginatorAnnotator::Proto() {
+  auto annotation = pb::Annotations();
   annotation->set_originator(originator_);
   return annotation;
 }

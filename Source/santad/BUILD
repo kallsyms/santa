@@ -715,7 +715,7 @@ objc_library(
         "//Source/common:SNTXPCNotifierInterface",
         "//Source/common:SNTXPCSyncServiceInterface",
         "//Source/common:Unit",
-        "//Source/santad/ProcessTree:process_tree"
+        "//Source/santad/ProcessTree:process_tree",
         "@MOLXPCConnection",
     ],
 )
@@ -747,7 +747,7 @@ objc_library(
         "//Source/common:SNTXPCControlInterface",
         "//Source/common:SNTXPCUnprivilegedControlInterface",
         "//Source/common:Unit",
-        "//Source/santad/ProcessTree:process_tree"
+        "//Source/santad/ProcessTree:process_tree",
         "@MOLXPCConnection",
     ],
 )

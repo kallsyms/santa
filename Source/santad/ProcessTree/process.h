@@ -5,13 +5,12 @@
 
 #include <memory>
 #include <string>
-#include <typeinfo>
+#include <typeindex>
 #include <vector>
 
 #include "Source/santad/ProcessTree/Annotations/base.h"
-#include "Source/santad/ProcessTree/tree.h"
 #include "absl/container/flat_hash_map.h"
-#include "absl/time/time.h"
+#include "absl/status/statusor.h"
 
 namespace process_tree {
 
@@ -26,27 +25,44 @@ struct cred {
   gid_t gid;
   std::optional<std::string> user;
   std::optional<std::string> group;
+
+  friend bool operator==(const struct cred &lhs, const struct cred &rhs) {
+    return lhs.uid == rhs.uid && lhs.gid == rhs.gid;
+  }
 };
 
 struct program {
   std::string executable;
   std::vector<std::string> arguments;
+
+  friend bool operator==(const struct program &lhs, const struct program &rhs) {
+    return lhs.executable == rhs.executable && lhs.arguments == rhs.arguments;
+  }
 };
 
-class ProcessTree;  // fwd decl
+// Fwd decls
+class ProcessTree;
 
 class Process {
  public:
-  explicit Process() {}
-  explicit Process(pid pid, std::shared_ptr<cred> cred,
-                   std::shared_ptr<program> program,
-                   std::shared_ptr<Process> parent, uint64_t flags)
-      : pid_(pid),
-        cred_(cred),
-        program_(program),
-        parent_(parent),
-        flags_(flags) {}
+  explicit Process(pid pid, std::shared_ptr<const cred> cred,
+                   std::shared_ptr<const program> program,
+                   std::shared_ptr<const Process> parent)
+      : pid_(pid), effective_cred_(cred), program_(program), parent_(parent) {}
   static absl::StatusOr<Process> LoadPID(pid_t pid);
+
+  Process(const Process &other)
+      : pid_(other.pid_),
+        effective_cred_(other.effective_cred_),
+        program_(other.program_),
+        parent_(other.parent_) {
+    // Copy constructor which "deep copies" annotations.
+    // Without this, copying Process doesn't work as the hash map has unique ptr
+    // values which can't be copied.
+    for (const auto &[t, annotator] : other.annotations_) {
+      annotations_.emplace(t, std::make_unique<Annotator>(*annotator));
+    }
+  }
 
   // Const "attributes" are public
   const struct pid pid_;
@@ -54,13 +70,12 @@ class Process {
   const std::shared_ptr<const program> program_;
 
  private:
-  friend class ProcessTree;
-
   // This is not API.
   // The tree helper methods are the API, and we just happen to implement
   // annotation storage and the parent relation in memory on the process right
   // now.
-  absl::flat_hash_map<std::type_info, Annotator> annotations_;
+  friend class ProcessTree;
+  absl::flat_hash_map<std::type_index, std::unique_ptr<Annotator>> annotations_;
   std::shared_ptr<const Process> parent_;
 };
 

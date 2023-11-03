@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 
 namespace process_tree {
 
@@ -79,7 +80,7 @@ absl::StatusOr<std::vector<std::string>> ProcessArgumentsForPID(pid_t pid) {
 }
 }  // namespace
 
-static absl::StatusOr<Process> Process::LoadPID(pid_t pid) {
+absl::StatusOr<Process> Process::LoadPID(pid_t pid) {
   kern_return_t kernReturn;
   task_name_t task;
   mach_msg_type_number_t size = TASK_AUDIT_TOKEN_COUNT;
@@ -104,20 +105,21 @@ static absl::StatusOr<Process> Process::LoadPID(pid_t pid) {
 
   // Don't fail Process creation if args can't be recovered.
   std::vector<std::string> args =
-      ProcessArgumentsForPID(audit_token_to_pid(token)).value_or({});
+      ProcessArgumentsForPID(audit_token_to_pid(token))
+          .value_or(std::vector<std::string>());
 
   return Process(
       (struct pid){.pid = audit_token_to_pid(token),
                    .pidversion = audit_token_to_pidversion(token)},
-      (struct cred){
+      std::make_shared<struct cred>((struct cred){
           .uid = audit_token_to_euid(token), .gid = audit_token_to_egid(token),
           // TODO username, group
-      },
-      (struct program){
+      }),
+      std::make_shared<struct program>((struct program){
           .executable = path,
           .arguments = args,
-      },
-      nullptr, 0);
+      }),
+      nullptr);
 }
 
 }  // namespace process_tree

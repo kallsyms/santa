@@ -1,15 +1,30 @@
 load("@rules_cc//cc:defs.bzl", "cc_proto_library")
 
+package(
+    default_visibility = ["//:santa_package_group"],
+)
+
 cc_library(
-  name = "process_tree",
-  srcs = ["process.cc", "tree.cc"],
-  hdrs = ["process.h", "tree.h"],
+  name = "process",
+  srcs = ["process.cc"],
+  hdrs = ["process.h"],
   deps = [
       "@com_google_absl//absl/container:flat_hash_map",
-      "@com_google_absl//absl/synchronization:mutex",
-      "//Source/santad/ProcessTree/Annotations:all_annotations"
-      "//Source/santad/ProcessTree/Annotations:base"
-  ]
+      "@com_google_absl//absl/synchronization",
+      "@com_google_absl//absl/status:statusor",
+      "//Source/santad/ProcessTree/Annotations:base",
+  ],
+)
+cc_library(
+  name = "process_tree",
+  srcs = ["tree.cc"],
+  hdrs = ["tree.h"],
+  deps = [
+      "@com_google_absl//absl/container:flat_hash_map",
+      "@com_google_absl//absl/synchronization",
+      "@com_google_absl//absl/status",
+      ":process",
+  ],
 )
 
 proto_library(
@@ -20,4 +35,5 @@ proto_library(
 cc_proto_library(
     name = "process_tree_cc_proto",
     deps = [":process_tree_proto"],
+    visibility = ["//Source/santad/ProcessTree:__subpackages__"],
 )
