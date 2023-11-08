@@ -285,6 +285,19 @@ objc_library(
 )
 
 objc_library(
+    name = "SNTEndpointSecurityTreeAwareClient",
+    srcs = ["EventProviders/SNTEndpointSecurityTreeAwareClient.mm"],
+    hdrs = ["EventProviders/SNTEndpointSecurityTreeAwareClient.h"],
+    deps = [
+        ":EndpointSecurityAPI",
+        ":EndpointSecurityMessage",
+        ":SNTEndpointSecurityClient",
+        ":Metrics",
+        "//Source/santad/ProcessTree:EndpointSecurityAdapter",
+    ],
+)
+
+objc_library(
     name = "SNTEndpointSecurityRecorder",
     srcs = ["EventProviders/SNTEndpointSecurityRecorder.mm"],
     hdrs = ["EventProviders/SNTEndpointSecurityRecorder.h"],
@@ -297,7 +310,7 @@ objc_library(
         ":EndpointSecurityMessage",
         ":Metrics",
         ":SNTCompilerController",
-        ":SNTEndpointSecurityClient",
+        ":SNTEndpointSecurityTreeAwareClient",
         ":SNTEndpointSecurityEventHandler",
         "//Source/common:PrefixTree",
         "//Source/common:SNTConfigurator",
@@ -335,7 +348,7 @@ objc_library(
         ":EndpointSecurityMessage",
         ":Metrics",
         ":SNTCompilerController",
-        ":SNTEndpointSecurityClient",
+        ":SNTEndpointSecurityTreeAwareClient",
         ":SNTEndpointSecurityEventHandler",
         ":SNTExecutionController",
         "//Source/common:BranchPrediction",

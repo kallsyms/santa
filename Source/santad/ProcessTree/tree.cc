@@ -85,13 +85,17 @@ void ProcessTree::HandleFork(const Process &parent, const pid new_pid) {
   }
 }
 
-void ProcessTree::HandleExec(const Process &p, const program prog,
-                             const cred c) {
+void ProcessTree::HandleExec(const Process &p, const pid new_pid,
+                             const program prog, const cred c) {
   absl::MutexLock lock(&mtx_);
+
+  // TODO(nickmg): should struct pid be reworked and only pid_version be passed?
+  assert(new_pid.pid == p.pid_.pid);
+
   auto new_proc = std::make_shared<Process>(
-      p.pid_, std::make_shared<const cred>(c),
+      new_pid, std::make_shared<const cred>(c),
       std::make_shared<const program>(prog), p.parent_);
-  map_.emplace(p.pid_.pid, new_proc);
+  map_.emplace(new_proc->pid_.pid, new_proc);
   for (auto annotator : annotators_) {
     annotator.AnnotateExec(*this, p, *new_proc);
   }
@@ -167,6 +171,23 @@ std::optional<std::shared_ptr<const Process>> ProcessTree::Get(
 
 std::shared_ptr<const Process> ProcessTree::GetParent(const Process &p) {
   return p.parent_;
+}
+
+void ProcessTree::DebugDump(std::ostream &stream) {
+  absl::MutexLock lock(&mtx_);
+  DebugDumpLocked(stream, 0, 0);
+}
+
+void ProcessTree::DebugDumpLocked(std::ostream &stream, int depth, pid_t ppid)
+    ABSL_SHARED_LOCKS_REQUIRED(mtx_) {
+  for (auto &[_, process] : map_) {
+    if ((ppid == 0 && !process->parent_) ||
+        process->parent_->pid_.pid == ppid) {
+      stream << std::string(2 * depth, ' ') << process->pid_.pid
+             << process->program_->executable << std::endl;
+      DebugDumpLocked(stream, depth + 1, process->pid_.pid);
+    }
+  }
 }
 
 }  // namespace process_tree

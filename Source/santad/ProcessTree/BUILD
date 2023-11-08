@@ -15,6 +15,7 @@ cc_library(
       "//Source/santad/ProcessTree/Annotations:base",
   ],
 )
+
 cc_library(
   name = "process_tree",
   srcs = ["tree.cc"],
@@ -36,4 +37,13 @@ cc_proto_library(
     name = "process_tree_cc_proto",
     deps = [":process_tree_proto"],
     visibility = ["//Source/santad/ProcessTree:__subpackages__"],
+)
+
+cc_library(
+  name = "EndpointSecurityAdapter",
+  srcs = ["EndpointSecurityAdapter.cc"],
+  hdrs = ["EndpointSecurityAdapter.h"],
+  deps = [
+      ":process_tree",
+  ],
 )

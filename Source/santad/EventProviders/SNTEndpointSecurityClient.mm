@@ -116,6 +116,10 @@ constexpr std::string_view kProtectedFiles[] = {"/private/var/db/santa/rules.db"
   return YES;
 }
 
+- (bool)handleContextMessage:(Message &)esMsg {
+  return false;
+}
+
 - (void)establishClientOrDie {
   if (self->_esClient.IsConnected()) {
     // This is a programming error
@@ -126,6 +130,9 @@ constexpr std::string_view kProtectedFiles[] = {"/private/var/db/santa/rules.db"
   self->_esClient = self->_esApi->NewClient(^(es_client_t *c, Message esMsg) {
     int64_t processingStart = clock_gettime_nsec_np(CLOCK_MONOTONIC);
     es_event_type_t eventType = esMsg->event_type;
+    if ([self handleContextMessage:esMsg]) {
+      return;
+    }
     if ([self shouldHandleMessage:esMsg]) {
       [self handleMessage:std::move(esMsg)
         recordEventMetrics:^(EventDisposition disposition) {

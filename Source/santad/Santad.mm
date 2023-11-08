@@ -124,14 +124,16 @@ void SantadMain(std::shared_ptr<EndpointSecurityAPI> esapi, std::shared_ptr<Logg
                                               enricher:enricher
                                     compilerController:compiler_controller
                                        authResultCache:auth_result_cache
-                                            prefixTree:prefix_tree];
+                                            prefixTree:prefix_tree
+                                           processTree:process_tree];
 
   SNTEndpointSecurityAuthorizer *authorizer_client =
     [[SNTEndpointSecurityAuthorizer alloc] initWithESAPI:esapi
                                                  metrics:metrics
                                           execController:exec_controller
                                       compilerController:compiler_controller
-                                         authResultCache:auth_result_cache];
+                                         authResultCache:auth_result_cache
+                                             processTree:process_tree];
 
   SNTEndpointSecurityTamperResistance *tamper_client =
     [[SNTEndpointSecurityTamperResistance alloc] initWithESAPI:esapi metrics:metrics logger:logger];
