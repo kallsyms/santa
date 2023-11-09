@@ -119,7 +119,7 @@ void ProcessTree::AnnotateProcess(const Process &p, Annotator &&a) {
 }
 
 std::optional<const Annotator> ProcessTree::GetAnnotation(
-    const Process &p, const std::type_info annotator_type) {
+    const Process &p, const std::type_info annotator_type) const {
   auto it = p.annotations_.find(std::type_index(annotator_type));
   if (it == p.annotations_.end()) {
     return std::nullopt;
@@ -134,7 +134,7 @@ Tree inspection methods
 */
 
 std::vector<std::shared_ptr<const Process>> ProcessTree::RootSlice(
-    std::shared_ptr<const Process> p) {
+    std::shared_ptr<const Process> p) const {
   std::vector<std::shared_ptr<const Process>> slice;
   while (p) {
     slice.push_back(p);
@@ -144,10 +144,10 @@ std::vector<std::shared_ptr<const Process>> ProcessTree::RootSlice(
 }
 
 void ProcessTree::Iterate(
-    std::function<void(std::shared_ptr<const Process> p)> f) {
+    std::function<void(std::shared_ptr<const Process> p)> f) const {
   std::vector<std::shared_ptr<const Process>> procs;
   {
-    absl::MutexLock lock(&mtx_);
+    absl::ReaderMutexLock lock(&mtx_);
     procs.reserve(map_.size());
     for (auto &[_, proc] : map_) {
       procs.push_back(proc);
@@ -160,8 +160,8 @@ void ProcessTree::Iterate(
 }
 
 std::optional<std::shared_ptr<const Process>> ProcessTree::Get(
-    const pid target) {
-  absl::MutexLock lock(&mtx_);
+    const pid target) const {
+  absl::ReaderMutexLock lock(&mtx_);
   auto it = map_.find(target.pid);
   if (it == map_.end()) {
     return std::nullopt;
@@ -169,16 +169,17 @@ std::optional<std::shared_ptr<const Process>> ProcessTree::Get(
   return it->second;
 }
 
-std::shared_ptr<const Process> ProcessTree::GetParent(const Process &p) {
+std::shared_ptr<const Process> ProcessTree::GetParent(const Process &p) const {
   return p.parent_;
 }
 
-void ProcessTree::DebugDump(std::ostream &stream) {
-  absl::MutexLock lock(&mtx_);
+void ProcessTree::DebugDump(std::ostream &stream) const {
+  absl::ReaderMutexLock lock(&mtx_);
   DebugDumpLocked(stream, 0, 0);
 }
 
-void ProcessTree::DebugDumpLocked(std::ostream &stream, int depth, pid_t ppid)
+void ProcessTree::DebugDumpLocked(std::ostream &stream, int depth,
+                                  pid_t ppid) const
     ABSL_SHARED_LOCKS_REQUIRED(mtx_) {
   for (auto &[_, process] : map_) {
     if ((ppid == 0 && !process->parent_) ||

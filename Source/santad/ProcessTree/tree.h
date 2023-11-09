@@ -45,7 +45,7 @@ class ProcessTree {
   // Get the given annotation on the given process if it exists, or nullopt if
   // the annotation is not set.
   std::optional<const Annotator> GetAnnotation(
-      const Process &p, const std::type_info annotator_type);
+      const Process &p, const std::type_info annotator_type) const;
 
   // Atomically get the slice of Processes going from the given process "up" to
   // the root. The root process has no parent.
@@ -53,26 +53,27 @@ class ProcessTree {
   // 1) and kthread (PID 2) are considered roots, as they are reported to have
   // PPID=0.
   std::vector<std::shared_ptr<const Process>> RootSlice(
-      std::shared_ptr<const Process> p);
+      std::shared_ptr<const Process> p) const;
 
   // Call f for all processes in the tree. The list of processes is captured
   // before invoking f, so it is safe to mutate the tree in f.
-  void Iterate(std::function<void(std::shared_ptr<const Process>)> f);
+  void Iterate(std::function<void(std::shared_ptr<const Process>)> f) const;
 
   // Get the Process for the given pid in the tree if it exists.
-  std::optional<std::shared_ptr<const Process>> Get(const struct pid target);
+  std::optional<std::shared_ptr<const Process>> Get(
+      const struct pid target) const;
 
   // Traverse the tree from the given Process to its parent.
-  std::shared_ptr<const Process> GetParent(const Process &p);
+  std::shared_ptr<const Process> GetParent(const Process &p) const;
 
   // Dump the tree in a human readable form to the given ostream.
-  void DebugDump(std::ostream &stream);
+  void DebugDump(std::ostream &stream) const;
 
  private:
-  void DebugDumpLocked(std::ostream &stream, int depth, pid_t ppid);
+  void DebugDumpLocked(std::ostream &stream, int depth, pid_t ppid) const;
 
   std::vector<Annotator> annotators_;
-  absl::Mutex mtx_;
+  mutable absl::Mutex mtx_;
   // N.B. Map from pid_t not struct pid since only 1 process with the given pid
   // can be active. We don't need to key off of the "pid + version".
   absl::flat_hash_map<pid_t, std::shared_ptr<Process>> map_
