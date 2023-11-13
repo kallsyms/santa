@@ -25,6 +25,8 @@
 #include "Source/santad/DataLayer/WatchItems.h"
 #include "Source/santad/EventProviders/EndpointSecurity/EndpointSecurityAPI.h"
 #include "Source/santad/ProcessTree/tree.h"
+#include "Source/santad/ProcessTree/Annotations/curl_sh.h"
+#include "Source/santad/ProcessTree/Annotations/originator.h"
 #import "Source/santad/SNTDatabaseController.h"
 #include "Source/santad/SNTDecisionCache.h"
 #include "Source/santad/TTYWriter.h"
@@ -154,6 +156,8 @@ std::unique_ptr<SantadDeps> SantadDeps::Create(SNTConfigurator *configurator,
   }
 
   std::shared_ptr<process_tree::ProcessTree> process_tree = std::make_shared<process_tree::ProcessTree>();
+  process_tree->RegisterAnnotator(std::make_unique<process_tree::CurlShAnnotator>());
+  process_tree->RegisterAnnotator(std::make_unique<process_tree::OriginatorAnnotator>());
 
   return std::make_unique<SantadDeps>(
     esapi, std::move(logger), std::move(metrics), std::move(watch_items),

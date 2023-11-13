@@ -48,21 +48,12 @@ class Process {
   explicit Process(pid pid, std::shared_ptr<const cred> cred,
                    std::shared_ptr<const program> program,
                    std::shared_ptr<const Process> parent)
-      : pid_(pid), effective_cred_(cred), program_(program), parent_(parent) {}
+      : pid_(pid),
+        effective_cred_(cred),
+        program_(program),
+        annotations_(),
+        parent_(parent) {}
   static absl::StatusOr<Process> LoadPID(pid_t pid);
-
-  Process(const Process &other)
-      : pid_(other.pid_),
-        effective_cred_(other.effective_cred_),
-        program_(other.program_),
-        parent_(other.parent_) {
-    // Copy constructor which "deep copies" annotations.
-    // Without this, copying Process doesn't work as the hash map has unique ptr
-    // values which can't be copied.
-    for (const auto &[t, annotator] : other.annotations_) {
-      annotations_.emplace(t, std::make_unique<Annotator>(*annotator));
-    }
-  }
 
   // Const "attributes" are public
   const struct pid pid_;
@@ -75,7 +66,8 @@ class Process {
   // annotation storage and the parent relation in memory on the process right
   // now.
   friend class ProcessTree;
-  absl::flat_hash_map<std::type_index, std::unique_ptr<Annotator>> annotations_;
+  absl::flat_hash_map<std::type_index, std::shared_ptr<const Annotator>>
+      annotations_;
   std::shared_ptr<const Process> parent_;
 };
 

@@ -20,11 +20,11 @@ class CurlShAnnotator : public Annotator {
   explicit CurlShAnnotator(CurlShState state) : state_(state){};
 
   void AnnotateFork(ProcessTree &tree, const Process &parent,
-                    const Process &child);
+                    const Process &child) override;
   void AnnotateExec(ProcessTree &tree, const Process &orig_process,
-                    const Process &new_process);
+                    const Process &new_process) override;
 
-  std::optional<pb::Annotations> Proto();
+  std::optional<pb::Annotations> Proto() override;
 
  private:
   CurlShState state_;

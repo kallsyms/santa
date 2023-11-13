@@ -12,12 +12,13 @@ class Process;
 
 class Annotator {
  public:
+  virtual ~Annotator() = default;
+
   virtual void AnnotateFork(ProcessTree &tree, const Process &parent,
-                            const Process &child);
+                            const Process &child) = 0;
   virtual void AnnotateExec(ProcessTree &tree, const Process &orig_process,
-                            const Process &new_process);
-  virtual std::optional<pb::Annotations> Proto();
-  virtual ~Annotator();
+                            const Process &new_process) = 0;
+  virtual std::optional<pb::Annotations> Proto() = 0;
 };
 
 }  // namespace process_tree

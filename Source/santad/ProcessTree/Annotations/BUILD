@@ -1,5 +1,5 @@
 package(
-    default_visibility = ["//Source/santad/ProcessTree:__subpackages__"],
+    default_visibility = ["//:santa_package_group"],
 )
 
 cc_library(
@@ -16,7 +16,7 @@ cc_library(
   srcs = ["curl_sh.cc"],
   deps = [
     ":base",
-    "//Source/santad/ProcessTree:tree",
+    "//Source/santad/ProcessTree:process_tree",
   ],
 )
 
@@ -26,7 +26,7 @@ cc_library(
   srcs = ["originator.cc"],
   deps = [
     ":base",
-    "//Source/santad/ProcessTree:tree",
+    "//Source/santad/ProcessTree:process_tree",
   ],
 )
 

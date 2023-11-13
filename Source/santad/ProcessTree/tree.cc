@@ -32,7 +32,7 @@ absl::Status ProcessTree::Backfill() {
     return absl::InternalError("proc_listpids failed");
   }
 
-  // TODO: topo-sort
+  absl::flat_hash_map<pid_t, std::vector<const Process>> parent_map;
   for (pid_t pid : pids) {
     auto proc_status = Process::LoadPID(pid);
     if (proc_status.ok()) {
@@ -47,32 +47,49 @@ absl::Status ProcessTree::Backfill() {
         continue;
       };
 
-      std::shared_ptr<const Process> parent = map_[bsdinfo.pbi_ppid];
+      parent_map[bsdinfo.pbi_ppid].push_back(unlinked_proc);
+    }
+  }
 
-      // We could also pull e.g. start time, pgid, associated tty, etc. from
-      // bsdinfo here.
-      auto proc = std::make_shared<Process>(
-          Process(unlinked_proc.pid_,
-                  // Re-use shared pointers from parent if value equivalent
-                  *(unlinked_proc.effective_cred_) == *(parent->effective_cred_)
-                      ? parent->effective_cred_
-                      : unlinked_proc.effective_cred_,
-                  *(unlinked_proc.program_) == *(parent->program_)
-                      ? parent->program_
-                      : unlinked_proc.program_,
-                  parent));
-      map_.emplace(pid, proc);
+  auto &roots = parent_map[0];
+  for (const Process &p : roots) {
+    BackfillInsertChildren(parent_map, std::shared_ptr<Process>(), p);
+  }
 
-      for (auto &annotator : annotators_) {
-        annotator.AnnotateFork(*this, *(proc->parent_), *proc);
-        if (proc->program_ != proc->parent_->program_) {
-          annotator.AnnotateExec(*this, *(proc->parent_), *proc);
-        }
+  return absl::OkStatus();
+}
+
+void ProcessTree::BackfillInsertChildren(
+    absl::flat_hash_map<pid_t, std::vector<const Process>> &parent_map,
+    std::shared_ptr<Process> parent, const Process &unlinked_proc) {
+  // We could also pull e.g. start time, pgid, associated tty, etc. from
+  // bsdinfo here.
+  auto proc = std::make_shared<Process>(Process(
+      unlinked_proc.pid_,
+      // Re-use shared pointers from parent if value equivalent
+      (parent && *(unlinked_proc.effective_cred_) == *(parent->effective_cred_))
+          ? parent->effective_cred_
+          : unlinked_proc.effective_cred_,
+      (parent && *(unlinked_proc.program_) == *(parent->program_))
+          ? parent->program_
+          : unlinked_proc.program_,
+      parent));
+  map_.emplace(unlinked_proc.pid_.pid, proc);
+
+  // The only case where we should not have a parent is the root processes
+  // (e.g. init, kthreadd).
+  if (parent) {
+    for (auto &annotator : annotators_) {
+      annotator->AnnotateFork(*this, *(proc->parent_), *proc);
+      if (proc->program_ != proc->parent_->program_) {
+        annotator->AnnotateExec(*this, *(proc->parent_), *proc);
       }
     }
   }
 
-  return absl::OkStatus();
+  for (const Process &child : parent_map[unlinked_proc.pid_.pid]) {
+    BackfillInsertChildren(parent_map, proc, child);
+  }
 }
 
 void ProcessTree::HandleFork(const Process &parent, const pid new_pid) {
@@ -80,8 +97,8 @@ void ProcessTree::HandleFork(const Process &parent, const pid new_pid) {
   auto child = std::make_shared<Process>(
       new_pid, parent.effective_cred_, parent.program_, map_[parent.pid_.pid]);
   map_.emplace(new_pid.pid, child);
-  for (auto annotator : annotators_) {
-    annotator.AnnotateFork(*this, parent, *child);
+  for (const auto &annotator : annotators_) {
+    annotator->AnnotateFork(*this, parent, *child);
   }
 }
 
@@ -96,8 +113,8 @@ void ProcessTree::HandleExec(const Process &p, const pid new_pid,
       new_pid, std::make_shared<const cred>(c),
       std::make_shared<const program>(prog), p.parent_);
   map_.emplace(new_proc->pid_.pid, new_proc);
-  for (auto annotator : annotators_) {
-    annotator.AnnotateExec(*this, p, *new_proc);
+  for (const auto &annotator : annotators_) {
+    annotator->AnnotateExec(*this, p, *new_proc);
   }
 }
 
@@ -112,19 +129,16 @@ Annotation get/set
 ---
 */
 
-void ProcessTree::AnnotateProcess(const Process &p, Annotator &&a) {
-  absl::MutexLock lock(&mtx_);
-  map_[p.pid_.pid]->annotations_.emplace(
-      std::type_index(typeid(a)), std::make_unique<Annotator>(std::move(a)));
+void ProcessTree::RegisterAnnotator(std::unique_ptr<Annotator> a) {
+  annotators_.push_back(std::move(a));
 }
 
-std::optional<const Annotator> ProcessTree::GetAnnotation(
-    const Process &p, const std::type_info annotator_type) const {
-  auto it = p.annotations_.find(std::type_index(annotator_type));
-  if (it == p.annotations_.end()) {
-    return std::nullopt;
-  }
-  return *(it->second);
+void ProcessTree::AnnotateProcess(const Process &p,
+                                  std::shared_ptr<const Annotator> &&a) {
+  absl::MutexLock lock(&mtx_);
+  const Annotator &x = *a;
+  map_[p.pid_.pid]->annotations_.emplace(std::type_index(typeid(x)),
+                                         std::move(a));
 }
 
 /*
@@ -175,6 +189,7 @@ std::shared_ptr<const Process> ProcessTree::GetParent(const Process &p) const {
 
 void ProcessTree::DebugDump(std::ostream &stream) const {
   absl::ReaderMutexLock lock(&mtx_);
+  stream << map_.size() << " processes" << std::endl;
   DebugDumpLocked(stream, 0, 0);
 }
 

@@ -19,7 +19,7 @@ class ProcessTree {
 
   // Register an Annotator class to be automatically processed on process
   // lifecycle events.
-  void RegisterAnnotator(Annotator a) { annotators_.push_back(a); };
+  void RegisterAnnotator(std::unique_ptr<Annotator> a);
 
   // Initialize the tree with the processes currently running on the system.
   absl::Status Backfill();
@@ -40,12 +40,12 @@ class ProcessTree {
   void HandleExit(const Process &p);
 
   // Annotate the given process with an Annotator (state).
-  void AnnotateProcess(const Process &p, Annotator &&a);
+  void AnnotateProcess(const Process &p, std::shared_ptr<const Annotator> &&a);
 
   // Get the given annotation on the given process if it exists, or nullopt if
   // the annotation is not set.
-  std::optional<const Annotator> GetAnnotation(
-      const Process &p, const std::type_info annotator_type) const;
+  template <typename T>
+  std::optional<std::shared_ptr<const T>> GetAnnotation(const Process &p) const;
 
   // Atomically get the slice of Processes going from the given process "up" to
   // the root. The root process has no parent.
@@ -70,15 +70,32 @@ class ProcessTree {
   void DebugDump(std::ostream &stream) const;
 
  private:
+  void BackfillInsertChildren(
+      absl::flat_hash_map<pid_t, std::vector<const Process>> &parent_map,
+      std::shared_ptr<Process> parent, const Process &unlinked_proc)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mtx_);
+
   void DebugDumpLocked(std::ostream &stream, int depth, pid_t ppid) const;
 
-  std::vector<Annotator> annotators_;
+  std::vector<std::unique_ptr<Annotator>> annotators_;
+
   mutable absl::Mutex mtx_;
   // N.B. Map from pid_t not struct pid since only 1 process with the given pid
   // can be active. We don't need to key off of the "pid + version".
   absl::flat_hash_map<pid_t, std::shared_ptr<Process>> map_
       ABSL_GUARDED_BY(mtx_);
 };
+
+template <typename T>
+std::optional<std::shared_ptr<const T>> ProcessTree::GetAnnotation(
+    const Process &p) const {
+  auto it = p.annotations_.find(std::type_index(typeid(T)));
+  if (it == p.annotations_.end()) {
+    return std::nullopt;
+  }
+  return std::dynamic_pointer_cast<const T>(it->second);
+}
+
 }  // namespace process_tree
 
 #endif
