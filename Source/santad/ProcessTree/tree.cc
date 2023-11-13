@@ -1,5 +1,6 @@
 #include "Source/santad/ProcessTree/tree.h"
 
+#include <CoreFoundation/CoreFoundation.h>
 #include <libproc.h>
 
 #include <functional>
@@ -13,24 +14,30 @@
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 
+extern "C" {
+extern void NSLog(CFStringRef format, ...);
+}
+
 namespace process_tree {
 
 absl::Status ProcessTree::Backfill() {
-  absl::MutexLock lock(&mtx_);
   int n_procs = proc_listpids(PROC_ALL_PIDS, 0, NULL, 0);
   if (n_procs < 0) {
     return absl::InternalError("proc_listpids failed");
   }
+  n_procs /= sizeof(pid_t);
 
   std::vector<pid_t> pids;
-  pids.reserve(n_procs + 16);  // add space for a few more processes
-                               // in case some spawn in-between.
+  pids.resize(n_procs + 16);  // add space for a few more processes
+                              // in case some spawn in-between.
 
-  n_procs = proc_listpids(PROC_ALL_PIDS, 0, pids.data(),
-                          pids.capacity() * sizeof(pid_t));
+  n_procs =
+      proc_listpids(PROC_ALL_PIDS, 0, pids.data(), pids.size() * sizeof(pid_t));
   if (n_procs < 0) {
     return absl::InternalError("proc_listpids failed");
   }
+  n_procs /= sizeof(pid_t);
+  pids.resize(n_procs);
 
   absl::flat_hash_map<pid_t, std::vector<const Process>> parent_map;
   for (pid_t pid : pids) {
@@ -48,6 +55,9 @@ absl::Status ProcessTree::Backfill() {
       };
 
       parent_map[bsdinfo.pbi_ppid].push_back(unlinked_proc);
+    } else {
+      NSLog(CFSTR("loadpid %d err: %s"), pid,
+            proc_status.status().ToString().c_str());
     }
   }
 
@@ -74,7 +84,10 @@ void ProcessTree::BackfillInsertChildren(
           ? parent->program_
           : unlinked_proc.program_,
       parent));
-  map_.emplace(unlinked_proc.pid_.pid, proc);
+  {
+    absl::MutexLock lock(&mtx_);
+    map_.emplace(unlinked_proc.pid_.pid, proc);
+  }
 
   // The only case where we should not have a parent is the root processes
   // (e.g. init, kthreadd).
@@ -93,10 +106,13 @@ void ProcessTree::BackfillInsertChildren(
 }
 
 void ProcessTree::HandleFork(const Process &parent, const pid new_pid) {
-  absl::MutexLock lock(&mtx_);
-  auto child = std::make_shared<Process>(
-      new_pid, parent.effective_cred_, parent.program_, map_[parent.pid_.pid]);
-  map_.emplace(new_pid.pid, child);
+  std::shared_ptr<Process> child;
+  {
+    absl::MutexLock lock(&mtx_);
+    child = std::make_shared<Process>(new_pid, parent.effective_cred_,
+                                      parent.program_, map_[parent.pid_.pid]);
+    map_.emplace(new_pid.pid, child);
+  }
   for (const auto &annotator : annotators_) {
     annotator->AnnotateFork(*this, parent, *child);
   }
@@ -104,15 +120,16 @@ void ProcessTree::HandleFork(const Process &parent, const pid new_pid) {
 
 void ProcessTree::HandleExec(const Process &p, const pid new_pid,
                              const program prog, const cred c) {
-  absl::MutexLock lock(&mtx_);
-
   // TODO(nickmg): should struct pid be reworked and only pid_version be passed?
   assert(new_pid.pid == p.pid_.pid);
 
   auto new_proc = std::make_shared<Process>(
       new_pid, std::make_shared<const cred>(c),
       std::make_shared<const program>(prog), p.parent_);
-  map_.emplace(new_proc->pid_.pid, new_proc);
+  {
+    absl::MutexLock lock(&mtx_);
+    map_.emplace(new_proc->pid_.pid, new_proc);
+  }
   for (const auto &annotator : annotators_) {
     annotator->AnnotateExec(*this, p, *new_proc);
   }
@@ -198,7 +215,7 @@ void ProcessTree::DebugDumpLocked(std::ostream &stream, int depth,
     ABSL_SHARED_LOCKS_REQUIRED(mtx_) {
   for (auto &[_, process] : map_) {
     if ((ppid == 0 && !process->parent_) ||
-        process->parent_->pid_.pid == ppid) {
+        (process->parent_ && process->parent_->pid_.pid == ppid)) {
       stream << std::string(2 * depth, ' ') << process->pid_.pid
              << process->program_->executable << std::endl;
       DebugDumpLocked(stream, depth + 1, process->pid_.pid);

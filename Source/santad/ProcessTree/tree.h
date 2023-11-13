@@ -72,8 +72,7 @@ class ProcessTree {
  private:
   void BackfillInsertChildren(
       absl::flat_hash_map<pid_t, std::vector<const Process>> &parent_map,
-      std::shared_ptr<Process> parent, const Process &unlinked_proc)
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mtx_);
+      std::shared_ptr<Process> parent, const Process &unlinked_proc);
 
   void DebugDumpLocked(std::ostream &stream, int depth, pid_t ppid) const;
 

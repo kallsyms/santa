@@ -404,9 +404,6 @@ void SantadMain(std::shared_ptr<EndpointSecurityAPI> esapi, std::shared_ptr<Logg
     std::string err = status.ToString();
     LOGE(@"Failed to backfill process tree: %@", @(err.c_str()));
   }
-  std::ostringstream ss;
-  process_tree->DebugDump(ss);
-  NSLog(@"Tree: %@", @(ss.str().c_str()));
 
   // IMPORTANT: ES will hold up third party execs until early boot clients make
   // their first subscription. Ensuring the `Authorizer` client is enabled first

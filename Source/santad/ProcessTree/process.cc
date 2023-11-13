@@ -81,22 +81,19 @@ absl::StatusOr<std::vector<std::string>> ProcessArgumentsForPID(pid_t pid) {
 }  // namespace
 
 absl::StatusOr<Process> Process::LoadPID(pid_t pid) {
-  kern_return_t kernReturn;
   task_name_t task;
   mach_msg_type_number_t size = TASK_AUDIT_TOKEN_COUNT;
   audit_token_t token;
 
-  kernReturn = task_name_for_pid(mach_task_self(), pid, &task);
-  if (kernReturn != KERN_SUCCESS) {
+  if (task_name_for_pid(mach_task_self(), pid, &task) != KERN_SUCCESS) {
     return absl::InternalError("task_name_for_pid");
   }
 
-  kernReturn = task_info(task, TASK_AUDIT_TOKEN, (task_info_t)&token, &size);
-  mach_port_deallocate(mach_task_self(), task);
-
-  if (kernReturn != KERN_SUCCESS) {
+  if (task_info(task, TASK_AUDIT_TOKEN, (task_info_t)&token, &size) !=
+      KERN_SUCCESS) {
     return absl::InternalError("task_info(TASK_AUDIT_TOKEN)");
   }
+  mach_port_deallocate(mach_task_self(), task);
 
   char path[PROC_PIDPATHINFO_MAXSIZE];
   if (proc_pidpath_audittoken(&token, path, sizeof(path)) <= 0) {
