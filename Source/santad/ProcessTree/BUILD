@@ -40,9 +40,9 @@ cc_proto_library(
     deps = [":process_tree_proto"],
 )
 
-cc_library(
+objc_library(
   name = "EndpointSecurityAdapter",
-  srcs = ["EndpointSecurityAdapter.cc"],
+  srcs = ["EndpointSecurityAdapter.mm"],
   hdrs = ["EndpointSecurityAdapter.h"],
   deps = [
       ":process_tree",

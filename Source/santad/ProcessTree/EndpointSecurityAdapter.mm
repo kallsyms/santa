@@ -11,15 +11,11 @@
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 /// See the License for the specific language governing permissions and
 /// limitations under the License.
-#include <CoreFoundation/CoreFoundation.h>
+#include <Foundation/Foundation.h>
 #include <EndpointSecurity/EndpointSecurity.h>
 #include <bsm/libbsm.h>
 
 #include "Source/santad/ProcessTree/tree.h"
-
-extern "C" {
-extern void NSLog(CFStringRef format, ...);
-}
 
 namespace process_tree {
 
@@ -29,19 +25,19 @@ struct pid PidFromAuditToken(const audit_token_t &tok) {
 }
 
 void InformFromESEvent(int client, ProcessTree &tree, const es_message_t *msg) {
-  NSLog(CFSTR("step %d @ %lu"), client, msg->mach_time);
+  NSLog(@"step %d @ %llu", client, msg->mach_time);
   if (!tree.Step(client, msg->mach_time)) {
     return;
   };
 
   struct pid event_pid = PidFromAuditToken(msg->process->audit_token);
   auto proc = tree.Get(event_pid);
-  NSLog(CFSTR("event type %d @ %lu, pid %d:%d, proc %d %p"), msg->event_type,
+  NSLog(@"event type %d @ %llu, pid %d:%d, proc %d %p", msg->event_type,
         msg->mach_time, event_pid.pid, event_pid.pidversion, proc.has_value(),
         proc->get());
 
   if (!proc) {
-    NSLog(CFSTR("no proc %d:%d in tree, skipping event..."), event_pid.pid,
+    NSLog(@"no proc %d:%d in tree, skipping event...", event_pid.pid,
           event_pid.pidversion);
     return;
   }
@@ -49,7 +45,7 @@ void InformFromESEvent(int client, ProcessTree &tree, const es_message_t *msg) {
   switch (msg->event_type) {
     case ES_EVENT_TYPE_AUTH_EXEC:
     case ES_EVENT_TYPE_NOTIFY_EXEC: {
-      NSLog(CFSTR("exec to %d:%d"),
+      NSLog(@"exec to %d:%d",
             PidFromAuditToken(msg->event.exec.target->audit_token).pid,
             PidFromAuditToken(msg->event.exec.target->audit_token).pidversion);
       std::vector<std::string> args;
@@ -74,7 +70,7 @@ void InformFromESEvent(int client, ProcessTree &tree, const es_message_t *msg) {
       break;
     }
     case ES_EVENT_TYPE_NOTIFY_FORK: {
-      NSLog(CFSTR("fork to %d:%d"),
+      NSLog(@"fork to %d:%d",
             PidFromAuditToken(msg->event.fork.child->audit_token).pid,
             PidFromAuditToken(msg->event.fork.child->audit_token).pidversion);
       tree.HandleFork(msg->mach_time, **proc,
@@ -85,7 +81,7 @@ void InformFromESEvent(int client, ProcessTree &tree, const es_message_t *msg) {
       tree.HandleExit(msg->mach_time, **proc);
       break;
     default:
-      NSLog(CFSTR("Unexpected event type %d"), msg->event_type);
+      NSLog(@"Unexpected event type %d", msg->event_type);
       return;
   }
 }
