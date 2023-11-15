@@ -48,8 +48,6 @@ H AbslHashValue(H h, const struct pid &p) {
 struct cred {
   uid_t uid;
   gid_t gid;
-  std::optional<std::string> user;
-  std::optional<std::string> group;
 
   friend bool operator==(const struct cred &lhs, const struct cred &rhs) {
     return lhs.uid == rhs.uid && lhs.gid == rhs.gid;
