@@ -63,7 +63,7 @@ absl::Status ProcessTree::Backfill() {
 
   absl::flat_hash_map<pid_t, std::vector<const Process>> parent_map;
   for (pid_t pid : pids) {
-    auto proc_status = Process::LoadPID(pid);
+    auto proc_status = LoadPID(pid);
     if (proc_status.ok()) {
       auto unlinked_proc = proc_status.value();
 

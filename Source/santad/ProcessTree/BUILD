@@ -7,7 +7,6 @@ package(
 
 cc_library(
   name = "process",
-  srcs = ["process.cc"],
   hdrs = ["process.h"],
   deps = [
       "@com_google_absl//absl/container:flat_hash_map",
@@ -17,10 +16,10 @@ cc_library(
   ],
 )
 
-cc_library(
+objc_library(
   name = "process_tree",
-  srcs = ["tree.cc"],
-  hdrs = ["tree.h"],
+  srcs = ["tree.cc", "tree_darwin.mm"],
+  hdrs = ["tree.h", "tree_darwin.h"],
   deps = [
       "@com_google_absl//absl/container:flat_hash_map",
       "@com_google_absl//absl/synchronization",
@@ -28,6 +27,9 @@ cc_library(
       ":process",
       "//Source/santad/ProcessTree/Annotations:base",
   ],
+    sdk_dylibs = [
+        "bsm",
+    ],
 )
 
 proto_library(
@@ -44,20 +46,31 @@ objc_library(
   name = "EndpointSecurityAdapter",
   srcs = ["EndpointSecurityAdapter.mm"],
   hdrs = ["EndpointSecurityAdapter.h"],
+    sdk_dylibs = [
+        "bsm",
+    ],
   deps = [
       ":process_tree",
+      "@com_google_absl//absl/status:statusor",
+  ],
+)
+
+objc_library(
+  name = "tree_test_helpers",
+  srcs = ["tree_test_helpers.mm"],
+  hdrs = ["tree_test_helpers.h"],
+  deps = [
+    ":process_tree",
+    "@com_google_absl//absl/synchronization",
   ],
 )
 
 santa_unit_test(
-    name = "process_tree_test",
-    srcs = ["tree_test.mm"],
-    deps = [
-        ":process",
-        ":process_tree",
-        "//Source/santad/ProcessTree/Annotations:base",
-        "//Source/common:TestUtils",
-        "@OCMock",
-        "@com_google_absl//absl/synchronization",
-    ],
+  name = "process_tree_test",
+  srcs = ["tree_test.mm"],
+  deps = [
+    ":process",
+    ":tree_test_helpers",
+    "//Source/santad/ProcessTree/Annotations:base",
+  ],
 )

@@ -23,7 +23,6 @@
 
 #include "Source/santad/ProcessTree/Annotations/base.h"
 #include "absl/container/flat_hash_map.h"
-#include "absl/status/statusor.h"
 
 namespace process_tree {
 
@@ -82,7 +81,6 @@ class Process {
         program_(program),
         annotations_(),
         parent_(parent) {}
-  static absl::StatusOr<Process> LoadPID(pid_t pid);
 
   // Const "attributes" are public
   const struct pid pid_;

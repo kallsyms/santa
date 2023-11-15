@@ -12,41 +12,21 @@
 /// See the License for the specific language governing permissions and
 /// limitations under the License.
 #import <Foundation/Foundation.h>
-#import <OCMock/OCMock.h>
 #import <XCTest/XCTest.h>
+
+#include <bsm/libbsm.h>
 
 #include <memory>
 #include <string>
 
-#include "Source/common/TestUtils.h"
-#include "Source/santad/ProcessTree/tree.h"
-#include "Source/santad/ProcessTree/process.h"
 #include "Source/santad/ProcessTree/Annotations/base.h"
+#include "Source/santad/ProcessTree/process.h"
+#include "Source/santad/ProcessTree/tree_test_helpers.h"
 #include "absl/synchronization/mutex.h"
 
-static constexpr std::string_view kAnnotatedExecutable = "/usr/bin/login";
-
 namespace process_tree {
-class ProcessTreeTestPeer : public ProcessTree {
-  public:
-   std::shared_ptr<const Process> InsertInit();
-};
 
-std::shared_ptr<const Process> ProcessTreeTestPeer::InsertInit() {
-    absl::MutexLock lock(&mtx_);
-    struct pid initpid = {
-      .pid = 1,
-      .pidversion = 1,
-    };
-    auto proc = std::make_shared<Process>(
-      initpid, std::make_shared<cred>((cred){.uid = 0, .gid = 0}),
-      std::make_shared<program>((program){.executable = "/init", .arguments = {"/init"}}),
-      nullptr
-    );
-    map_.emplace(initpid,
-      proc);
-      return proc;
-}
+static constexpr std::string_view kAnnotatedExecutable = "/usr/bin/login";
 
 class TestAnnotator : public Annotator {
  public:
@@ -136,7 +116,7 @@ using namespace process_tree;
 // processes (with task_name_for_pid) requires privileges.
 // Test what we can by LoadPID'ing ourselves.
 - (void)testLoadPID {
-  auto proc = Process::LoadPID(getpid()).value();
+  auto proc = LoadPID(getpid()).value();
 
   audit_token_t self_tok;
   mach_msg_type_number_t count = TASK_AUDIT_TOKEN_COUNT;

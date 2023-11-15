@@ -21,10 +21,13 @@
 #include "Source/santad/ProcessTree/process.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/synchronization/mutex.h"
 #include "process.h"
 
 namespace process_tree {
+
+absl::StatusOr<Process> LoadPID(pid_t pid);
 
 // Fwd decl for test peer.
 class ProcessTreeTestPeer;

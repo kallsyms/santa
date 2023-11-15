@@ -293,6 +293,7 @@ objc_library(
         ":EndpointSecurityMessage",
         ":SNTEndpointSecurityClient",
         ":Metrics",
+        "//Source/santad/ProcessTree:process_tree",
         "//Source/santad/ProcessTree:EndpointSecurityAdapter",
     ],
 )
@@ -449,6 +450,7 @@ objc_library(
         ":EndpointSecurityEnrichedTypes",
         "//Source/common:SNTLogging",
         "//Source/common:SantaCache",
+        "//Source/santad/ProcessTree:process_tree",
         "//Source/santad/ProcessTree:EndpointSecurityAdapter",
     ],
 )

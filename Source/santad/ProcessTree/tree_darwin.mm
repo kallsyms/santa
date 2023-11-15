@@ -11,18 +11,15 @@
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 /// See the License for the specific language governing permissions and
 /// limitations under the License.
-#include "Source/santad/ProcessTree/process.h"
-
+#include <Foundation/Foundation.h>
 #include <bsm/libbsm.h>
 #include <libproc.h>
 #include <mach/message.h>
 #include <string.h>
 #include <sys/sysctl.h>
 
-#include <string>
-#include <vector>
-
-#include "absl/status/status.h"
+#include "Source/santad/ProcessTree/process.h"
+#include "Source/santad/ProcessTree/tree.h"
 #include "absl/status/statusor.h"
 
 namespace process_tree {
@@ -93,7 +90,12 @@ absl::StatusOr<std::vector<std::string>> ProcessArgumentsForPID(pid_t pid) {
 }
 }  // namespace
 
-absl::StatusOr<Process> Process::LoadPID(pid_t pid) {
+struct pid PidFromAuditToken(const audit_token_t &tok) {
+  return (struct pid){.pid = audit_token_to_pid(tok),
+                      .pidversion = audit_token_to_pidversion(tok)};
+}
+
+absl::StatusOr<Process> LoadPID(pid_t pid) {
   task_name_t task;
   mach_msg_type_number_t size = TASK_AUDIT_TOKEN_COUNT;
   audit_token_t token;
@@ -132,4 +134,4 @@ absl::StatusOr<Process> Process::LoadPID(pid_t pid) {
       nullptr);
 }
 
-}  // namespace process_tree
+}

@@ -25,6 +25,8 @@
 
 #include "Source/common/SNTLogging.h"
 #include "Source/santad/EventProviders/EndpointSecurity/EnrichedTypes.h"
+#include "Source/santad/ProcessTree/tree.h"
+#include "Source/santad/ProcessTree/tree_darwin.h"
 #include "Source/santad/ProcessTree/EndpointSecurityAdapter.h"
 
 namespace santa::santad::event_providers::endpoint_security {

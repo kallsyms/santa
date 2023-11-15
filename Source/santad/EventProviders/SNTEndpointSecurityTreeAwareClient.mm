@@ -19,6 +19,7 @@
 #include "Source/santad/EventProviders/EndpointSecurity/EndpointSecurityAPI.h"
 #include "Source/santad/EventProviders/EndpointSecurity/Message.h"
 #include "Source/santad/ProcessTree/tree.h"
+#include "Source/santad/ProcessTree/tree_darwin.h"
 #include "Source/santad/ProcessTree/EndpointSecurityAdapter.h"
 #include "Source/santad/Metrics.h"
 

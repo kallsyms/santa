@@ -16,13 +16,10 @@
 #include <bsm/libbsm.h>
 
 #include "Source/santad/ProcessTree/tree.h"
+#include "Source/santad/ProcessTree/tree_darwin.h"
+#include "absl/status/statusor.h"
 
 namespace process_tree {
-
-struct pid PidFromAuditToken(const audit_token_t &tok) {
-  return (struct pid){.pid = audit_token_to_pid(tok),
-                      .pidversion = audit_token_to_pidversion(tok)};
-}
 
 void InformFromESEvent(int client, ProcessTree &tree, const es_message_t *msg) {
   NSLog(@"step %d @ %llu", client, msg->mach_time);

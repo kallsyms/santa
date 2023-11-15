@@ -11,18 +11,15 @@
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 /// See the License for the specific language governing permissions and
 /// limitations under the License.
-#ifndef SANTA__SANTAD_PROCESSTREE_ENDPOINTSECURITYADAPTER_H
-#define SANTA__SANTAD_PROCESSTREE_ENDPOINTSECURITYADAPTER_H
+#ifndef SANTA__SANTAD_PROCESSTREE_TREE_DARWIN_H
+#define SANTA__SANTAD_PROCESSTREE_TREE_DARWIN_H
 
-#include <EndpointSecurity/ESTypes.h>
-
-#include "Source/santad/ProcessTree/tree.h"
+#include <bsm/libbsm.h>
 
 namespace process_tree {
-// Inform the tree of the ES event in msg.
-// This is idempotent on the tree, so can be called from multiple places with
-// the same msg.
-void InformFromESEvent(int client, ProcessTree &tree, const es_message_t *msg);
+// Create a struct pid from the given audit token.
+struct pid PidFromAuditToken(const audit_token_t &tok);
+
 }  // namespace process_tree
 
 #endif

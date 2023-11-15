@@ -11,18 +11,19 @@
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 /// See the License for the specific language governing permissions and
 /// limitations under the License.
-#ifndef SANTA__SANTAD_PROCESSTREE_ENDPOINTSECURITYADAPTER_H
-#define SANTA__SANTAD_PROCESSTREE_ENDPOINTSECURITYADAPTER_H
-
-#include <EndpointSecurity/ESTypes.h>
+#ifndef SANTA__SANTAD_PROCESSTREE_TREE_TEST_HELPERS_H
+#define SANTA__SANTAD_PROCESSTREE_TREE_TEST_HELPERS_H
+#include <memory>
 
 #include "Source/santad/ProcessTree/tree.h"
 
 namespace process_tree {
-// Inform the tree of the ES event in msg.
-// This is idempotent on the tree, so can be called from multiple places with
-// the same msg.
-void InformFromESEvent(int client, ProcessTree &tree, const es_message_t *msg);
+
+class ProcessTreeTestPeer : public ProcessTree {
+ public:
+  std::shared_ptr<const Process> InsertInit();
+};
+
 }  // namespace process_tree
 
 #endif
