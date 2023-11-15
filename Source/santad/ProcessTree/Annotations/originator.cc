@@ -24,7 +24,6 @@ void OriginatorAnnotator::AnnotateFork(ProcessTree &tree, const Process &parent,
   // "Base case". Propagate existing annotations down to descendants.
   if (auto annotation = tree.GetAnnotation<OriginatorAnnotator>(parent)) {
     tree.AnnotateProcess(child, std::move(*annotation));
-    return;
   }
 }
 

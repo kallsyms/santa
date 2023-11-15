@@ -35,6 +35,9 @@ struct pid {
   friend bool operator==(const struct pid &lhs, const struct pid &rhs) {
     return lhs.pid == rhs.pid && lhs.pidversion == rhs.pidversion;
   }
+  friend bool operator!=(const struct pid &lhs, const struct pid &rhs) {
+    return !(lhs == rhs);
+  }
 };
 
 template <typename H>
@@ -51,6 +54,9 @@ struct cred {
   friend bool operator==(const struct cred &lhs, const struct cred &rhs) {
     return lhs.uid == rhs.uid && lhs.gid == rhs.gid;
   }
+  friend bool operator!=(const struct cred &lhs, const struct cred &rhs) {
+    return !(lhs == rhs);
+  }
 };
 
 struct program {
@@ -59,6 +65,9 @@ struct program {
 
   friend bool operator==(const struct program &lhs, const struct program &rhs) {
     return lhs.executable == rhs.executable && lhs.arguments == rhs.arguments;
+  }
+  friend bool operator!=(const struct program &lhs, const struct program &rhs) {
+    return !(lhs == rhs);
   }
 };
 

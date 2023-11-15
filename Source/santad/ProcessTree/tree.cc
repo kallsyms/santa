@@ -96,7 +96,7 @@ void ProcessTree::BackfillInsertChildren(
     std::shared_ptr<Process> parent, const Process &unlinked_proc) {
   // We could also pull e.g. start time, pgid, associated tty, etc. from
   // bsdinfo here.
-  auto proc = std::make_shared<Process>(Process(
+  auto proc = std::make_shared<Process>(
       unlinked_proc.pid_,
       // Re-use shared pointers from parent if value equivalent
       (parent && *(unlinked_proc.effective_cred_) == *(parent->effective_cred_))
@@ -105,7 +105,7 @@ void ProcessTree::BackfillInsertChildren(
       (parent && *(unlinked_proc.program_) == *(parent->program_))
           ? parent->program_
           : unlinked_proc.program_,
-      parent));
+      parent);
   {
     absl::MutexLock lock(&mtx_);
     NSLog(CFSTR("backfill %d:%d"), unlinked_proc.pid_.pid,

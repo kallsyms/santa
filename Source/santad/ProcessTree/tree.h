@@ -26,6 +26,9 @@
 
 namespace process_tree {
 
+// Fwd decl for test peer.
+class ProcessTreeTestPeer;
+
 class ProcessTree {
  public:
   explicit ProcessTree() {}
@@ -107,6 +110,7 @@ class ProcessTree {
   void DebugDump(std::ostream &stream) const;
 
  private:
+  friend class ProcessTreeTestPeer;
   void BackfillInsertChildren(
       absl::flat_hash_map<pid_t, std::vector<const Process>> &parent_map,
       std::shared_ptr<Process> parent, const Process &unlinked_proc);

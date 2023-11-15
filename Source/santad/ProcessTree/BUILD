@@ -1,4 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_proto_library")
+load("//:helper.bzl", "santa_unit_test")
 
 package(
     default_visibility = ["//:santa_package_group"],
@@ -46,4 +47,17 @@ cc_library(
   deps = [
       ":process_tree",
   ],
+)
+
+santa_unit_test(
+    name = "process_tree_test",
+    srcs = ["tree_test.mm"],
+    deps = [
+        ":process",
+        ":process_tree",
+        "//Source/santad/ProcessTree/Annotations:base",
+        "//Source/common:TestUtils",
+        "@OCMock",
+        "@com_google_absl//absl/synchronization",
+    ],
 )
