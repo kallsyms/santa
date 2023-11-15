@@ -211,7 +211,6 @@ bool ProcessTree::Step(int client, uint64_t timestamp) {
 }
 
 void ProcessTree::RetainProcess(const struct pid p) {
-  // TODO(nickmg): reader mutex lock since the map isn't being modified?
   absl::MutexLock lock(&mtx_);
   auto proc = GetLocked(p);
   if (proc) {

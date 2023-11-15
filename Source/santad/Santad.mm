@@ -127,13 +127,13 @@ void SantadMain(std::shared_ptr<EndpointSecurityAPI> esapi, std::shared_ptr<Logg
                                             prefixTree:prefix_tree
                                            processTree:process_tree];
 
-  // SNTEndpointSecurityAuthorizer *authorizer_client =
-  //   [[SNTEndpointSecurityAuthorizer alloc] initWithESAPI:esapi
-  //                                                metrics:metrics
-  //                                         execController:exec_controller
-  //                                     compilerController:compiler_controller
-  //                                        authResultCache:auth_result_cache
-  //                                            processTree:process_tree];
+  SNTEndpointSecurityAuthorizer *authorizer_client =
+    [[SNTEndpointSecurityAuthorizer alloc] initWithESAPI:esapi
+                                                 metrics:metrics
+                                          execController:exec_controller
+                                      compilerController:compiler_controller
+                                         authResultCache:auth_result_cache
+                                             processTree:process_tree];
 
   SNTEndpointSecurityTamperResistance *tamper_client =
     [[SNTEndpointSecurityTamperResistance alloc] initWithESAPI:esapi metrics:metrics logger:logger];
@@ -409,7 +409,7 @@ void SantadMain(std::shared_ptr<EndpointSecurityAPI> esapi, std::shared_ptr<Logg
   // their first subscription. Ensuring the `Authorizer` client is enabled first
   // means that the AUTH EXEC event is subscribed first and Santa can apply
   // execution policy appropriately.
-  //[authorizer_client enable];
+  [authorizer_client enable];
   [tamper_client enable];
   if (@available(macOS 13.0, *)) {
     // Start monitoring any watched items

@@ -47,8 +47,6 @@ Message::Message(const Message &other) {
   process_token_ = other.process_token_;
 }
 
-// TODO(nickmg): remove in favor of changing esapi new client blocks and fully
-// constructing there.
 void Message::SetProcessToken(process_tree::ProcessToken &&tok) {
   process_token_ = std::move(tok);
 }
