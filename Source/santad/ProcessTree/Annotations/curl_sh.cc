@@ -28,7 +28,7 @@ void CurlShAnnotator::AnnotateExec(ProcessTree &tree,
   }
 }
 
-std::optional<pb::Annotations> CurlShAnnotator::Proto() {
+std::optional<pb::Annotations> CurlShAnnotator::Proto() const {
   if (state_ == CurlShState::kSeenBoth) {
     auto annotation = pb::Annotations();
     annotation.set_curl_sh(true);

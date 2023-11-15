@@ -34,7 +34,7 @@ void OriginatorAnnotator::AnnotateExec(ProcessTree &tree,
   }
 }
 
-std::optional<pb::Annotations> OriginatorAnnotator::Proto() {
+std::optional<pb::Annotations> OriginatorAnnotator::Proto() const {
   auto annotation = pb::Annotations();
   annotation.set_ancestor(originator_);
   return annotation;

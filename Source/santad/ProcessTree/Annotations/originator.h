@@ -21,7 +21,7 @@ class OriginatorAnnotator : public Annotator {
   void AnnotateExec(ProcessTree &tree, const Process &orig_process,
                     const Process &new_process) override;
 
-  std::optional<pb::Annotations> Proto() override;
+  std::optional<pb::Annotations> Proto() const override;
 
  private:
   pb::Annotations::Originator originator_;

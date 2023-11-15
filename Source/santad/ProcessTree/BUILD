@@ -37,7 +37,6 @@ proto_library(
 cc_proto_library(
     name = "process_tree_cc_proto",
     deps = [":process_tree_proto"],
-    visibility = ["//Source/santad/ProcessTree:__subpackages__"],
 )
 
 cc_library(

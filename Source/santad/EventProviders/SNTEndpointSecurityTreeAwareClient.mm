@@ -1,4 +1,4 @@
-/// Copyright 2022 Google Inc. All rights reserved.
+/// Copyright 2023 Google Inc. All rights reserved.
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ using santa::santad::event_providers::endpoint_security::EndpointSecurityAPI;
 using santa::santad::event_providers::endpoint_security::Message;
 
 @implementation SNTEndpointSecurityTreeAwareClient {
+  int _processTreeClient;
   std::vector<bool> _addedEvents;
 }
 
@@ -39,6 +40,7 @@ using santa::santad::event_providers::endpoint_security::Message;
   self = [super initWithESAPI:std::move(esApi) metrics:std::move(metrics) processor:processor];
   if (self) {
     _processTree = std::move(processTree);
+    _processTreeClient = _processTree->RegisterClient();
     _addedEvents.resize(ES_EVENT_TYPE_LAST, false);
   }
   return self;
@@ -50,7 +52,7 @@ using santa::santad::event_providers::endpoint_security::Message;
     eventsWithLifecycle.insert(ES_EVENT_TYPE_NOTIFY_FORK);
     _addedEvents[ES_EVENT_TYPE_NOTIFY_FORK] = true;
   }
-  if (events.find(ES_EVENT_TYPE_NOTIFY_EXEC) == events.end()) {
+  if (events.find(ES_EVENT_TYPE_NOTIFY_EXEC) == events.end() && events.find(ES_EVENT_TYPE_AUTH_EXEC) == events.end()) {
     eventsWithLifecycle.insert(ES_EVENT_TYPE_NOTIFY_EXEC);
     _addedEvents[ES_EVENT_TYPE_NOTIFY_EXEC] = true;
   }
@@ -63,16 +65,37 @@ using santa::santad::event_providers::endpoint_security::Message;
 }
 
 - (bool)handleContextMessage:(Message &)esMsg {
+  // Inform the tree
   switch (esMsg->event_type) {
     case ES_EVENT_TYPE_NOTIFY_FORK:
     case ES_EVENT_TYPE_NOTIFY_EXEC:
+    case ES_EVENT_TYPE_AUTH_EXEC:
     case ES_EVENT_TYPE_NOTIFY_EXIT:
-      process_tree::InformFromESEvent(*_processTree, &*esMsg);
-      return _addedEvents[esMsg->event_type];
-
+      process_tree::InformFromESEvent(_processTreeClient, *_processTree, &*esMsg);
+      break;
     default:
-      return false;
+      break;
   }
+
+  // Now enumerate the processes that processing this event might require access to...
+  std::vector<struct process_tree::pid> pids;
+  pids.emplace_back(process_tree::PidFromAuditToken(esMsg->process->audit_token));
+  switch (esMsg->event_type) {
+    case ES_EVENT_TYPE_AUTH_EXEC:
+    case ES_EVENT_TYPE_NOTIFY_EXEC:
+      pids.emplace_back(process_tree::PidFromAuditToken(esMsg->event.exec.target->audit_token));
+      break;
+    case ES_EVENT_TYPE_NOTIFY_FORK:
+      pids.emplace_back(process_tree::PidFromAuditToken(esMsg->event.fork.child->audit_token));
+      break;
+    default:
+      break;
+  }
+
+  // ...and create the token for those.
+  esMsg.SetProcessToken(process_tree::ProcessToken(_processTree, std::move(pids)));
+
+  return _addedEvents[esMsg->event_type];
 }
 
 @end

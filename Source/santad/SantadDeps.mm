@@ -177,7 +177,7 @@ SantadDeps::SantadDeps(
       logger_(std::move(logger)),
       metrics_(std::move(metrics)),
       watch_items_(std::move(watch_items)),
-      enricher_(std::make_shared<::Enricher>()),
+      enricher_(std::make_shared<::Enricher>(process_tree)),
       auth_result_cache_(std::move(auth_result_cache)),
       control_connection_(control_connection),
       compiler_controller_(compiler_controller),

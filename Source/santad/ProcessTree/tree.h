@@ -21,37 +21,61 @@ class ProcessTree {
   // lifecycle events.
   void RegisterAnnotator(std::unique_ptr<Annotator> a);
 
+  // Register a new client of the tree. Required so the tree knows when each
+  // client has processed through process exits, and can release them.
+  int RegisterClient();
+
   // Initialize the tree with the processes currently running on the system.
   absl::Status Backfill();
 
   // Inform the tree of a fork event, in which the parent process spawns a child
   // with the only difference between the two being the pid.
-  void HandleFork(const Process &parent, const struct pid child);
+  void HandleFork(uint64_t timestamp, const Process &parent,
+                  const struct pid child);
 
   // Inform the tree of an exec event, in which the program and potentially cred
   // of a Process change.
   // N.B. new_pid is required as the "pid version" will have changed.
   // It is a programming error to pass a new_pid such that
   // p.pid_.pid != new_pid.pid.
-  void HandleExec(const Process &p, const struct pid new_pid,
-                  const struct program prog, const struct cred c);
+  void HandleExec(uint64_t timestamp, const Process &p,
+                  const struct pid new_pid, const struct program prog,
+                  const struct cred c);
 
   // Inform the tree of a process exit.
-  void HandleExit(const Process &p);
+  void HandleExit(uint64_t timestamp, const Process &p);
+
+  // Mark that the given client has processed up to the given timestamp.
+  // Returns whether the given timestamp is "novel", and the tree should be
+  // informed of the event.
+  bool Step(int client, uint64_t timestamp);
+
+  // Mark the given pid as needing to be retained in the tree's map for future
+  // access. Normally, Processes are removed once all clients process past the
+  // event which would remove the Process (e.g. exit), however in cases where
+  // async processing occurs, the Process may need to be accessed after the
+  // exit.
+  void RetainProcess(const struct pid p);
+
+  // Release a previously retained process, signaling that the client is done
+  // processing the event that retained it.
+  void ReleaseProcess(const struct pid p);
 
   // Annotate the given process with an Annotator (state).
-  void AnnotateProcess(const Process &p, std::shared_ptr<const Annotator> &&a);
+  void AnnotateProcess(const Process &p, std::shared_ptr<const Annotator> a);
 
   // Get the given annotation on the given process if it exists, or nullopt if
   // the annotation is not set.
   template <typename T>
   std::optional<std::shared_ptr<const T>> GetAnnotation(const Process &p) const;
 
-  // Atomically get the slice of Processes going from the given process "up" to
-  // the root. The root process has no parent.
-  // N.B. There may be more than one root process. E.g. on Linux, both init (PID
-  // 1) and kthread (PID 2) are considered roots, as they are reported to have
-  // PPID=0.
+  // Get the fully merged proto form of all annotations on the given process.
+  std::optional<pb::Annotations> GetAnnotations(const struct pid p);
+
+  // Atomically get the slice of Processes going from the given process "up"
+  // to the root. The root process has no parent. N.B. There may be more than
+  // one root process. E.g. on Linux, both init (PID 1) and kthread (PID 2)
+  // are considered roots, as they are reported to have PPID=0.
   std::vector<std::shared_ptr<const Process>> RootSlice(
       std::shared_ptr<const Process> p) const;
 
@@ -74,15 +98,27 @@ class ProcessTree {
       absl::flat_hash_map<pid_t, std::vector<const Process>> &parent_map,
       std::shared_ptr<Process> parent, const Process &unlinked_proc);
 
+  std::optional<std::shared_ptr<Process>> GetLocked(
+      const struct pid target) const ABSL_SHARED_LOCKS_REQUIRED(mtx_);
+
   void DebugDumpLocked(std::ostream &stream, int depth, pid_t ppid) const;
 
   std::vector<std::unique_ptr<Annotator>> annotators_;
 
   mutable absl::Mutex mtx_;
-  // N.B. Map from pid_t not struct pid since only 1 process with the given pid
-  // can be active. We don't need to key off of the "pid + version".
-  absl::flat_hash_map<pid_t, std::shared_ptr<Process>> map_
+  absl::flat_hash_map<const struct pid, std::shared_ptr<Process>> map_
       ABSL_GUARDED_BY(mtx_);
+  // TODO(nickmg): remove?
+  absl::flat_hash_map<int, uint64_t> last_processed_ ABSL_GUARDED_BY(mtx_);
+  // List of pids which should be removed from map_, and at the timestamp at
+  // which they should be.
+  // Elements are removed when the timestamp falls out of the seen_timestamps_
+  // list below, signifying that all clients have synced past the timestamp.
+  std::vector<std::pair<uint64_t, struct pid>> remove_at_ ABSL_GUARDED_BY(mtx_);
+  // Rolling list of event timestamps processed by the tree.
+  // This is used to ensure an event only gets processed once, even if events
+  // come out of order.
+  std::array<uint64_t, 32> seen_timestamps_ ABSL_GUARDED_BY(mtx_);
 };
 
 template <typename T>
@@ -94,6 +130,29 @@ std::optional<std::shared_ptr<const T>> ProcessTree::GetAnnotation(
   }
   return std::dynamic_pointer_cast<const T>(it->second);
 }
+
+class ProcessToken {
+ public:
+  explicit ProcessToken(std::shared_ptr<ProcessTree> tree,
+                        std::vector<struct pid> pids);
+  ~ProcessToken();
+  ProcessToken(const ProcessToken &other)
+      : ProcessToken(other.tree_, other.pids_) {}
+  ProcessToken(ProcessToken &&other) noexcept
+      : tree_(std::move(other.tree_)), pids_(std::move(other.pids_)) {}
+  ProcessToken &operator=(const ProcessToken &other) {
+    return *this = ProcessToken(other.tree_, other.pids_);
+  }
+  ProcessToken &operator=(ProcessToken &&other) noexcept {
+    tree_ = std::move(other.tree_);
+    pids_ = std::move(other.pids_);
+    return *this;
+  }
+
+ private:
+  std::shared_ptr<ProcessTree> tree_;
+  std::vector<struct pid> pids_;
+};
 
 }  // namespace process_tree
 

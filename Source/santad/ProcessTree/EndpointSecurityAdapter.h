@@ -6,10 +6,13 @@
 #include "Source/santad/ProcessTree/tree.h"
 
 namespace process_tree {
+// Create a struct pid from the given audit token.
+struct pid PidFromAuditToken(const audit_token_t &tok);
+
 // Inform the tree of the ES event in msg.
 // This is idempotent on the tree, so can be called from multiple places with
 // the same msg.
-void InformFromESEvent(ProcessTree &tree, const es_message_t *msg);
+void InformFromESEvent(int client, ProcessTree &tree, const es_message_t *msg);
 }  // namespace process_tree
 
 #endif

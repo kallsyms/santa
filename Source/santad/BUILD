@@ -449,6 +449,7 @@ objc_library(
         ":EndpointSecurityEnrichedTypes",
         "//Source/common:SNTLogging",
         "//Source/common:SantaCache",
+        "//Source/santad/ProcessTree:EndpointSecurityAdapter",
     ],
 )
 
@@ -457,6 +458,7 @@ objc_library(
     hdrs = ["EventProviders/EndpointSecurity/EnrichedTypes.h"],
     deps = [
         ":EndpointSecurityMessage",
+        "//Source/santad/ProcessTree:process_tree_cc_proto",
     ],
 )
 
@@ -632,6 +634,7 @@ objc_library(
     deps = [
         ":EndpointSecurityClient",
         ":WatchItemPolicy",
+        "//Source/santad/ProcessTree:process_tree",
     ],
 )
 

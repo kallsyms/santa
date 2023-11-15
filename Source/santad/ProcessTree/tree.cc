@@ -3,6 +3,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <libproc.h>
 
+#include <algorithm>
 #include <functional>
 #include <memory>
 #include <typeindex>
@@ -11,6 +12,7 @@
 
 #include "Source/santad/ProcessTree/Annotations/base.h"
 #include "Source/santad/ProcessTree/process.h"
+#include "Source/santad/ProcessTree/process_tree.pb.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 
@@ -19,6 +21,13 @@ extern void NSLog(CFStringRef format, ...);
 }
 
 namespace process_tree {
+
+int ProcessTree::RegisterClient() {
+  absl::MutexLock lock(&mtx_);
+  int id = last_processed_.size();
+  last_processed_[id] = 0;
+  return id;
+}
 
 absl::Status ProcessTree::Backfill() {
   int n_procs = proc_listpids(PROC_ALL_PIDS, 0, NULL, 0);
@@ -86,7 +95,9 @@ void ProcessTree::BackfillInsertChildren(
       parent));
   {
     absl::MutexLock lock(&mtx_);
-    map_.emplace(unlinked_proc.pid_.pid, proc);
+    NSLog(CFSTR("backfill %d:%d"), unlinked_proc.pid_.pid,
+          unlinked_proc.pid_.pidversion);
+    map_.emplace(unlinked_proc.pid_, proc);
   }
 
   // The only case where we should not have a parent is the root processes
@@ -105,21 +116,23 @@ void ProcessTree::BackfillInsertChildren(
   }
 }
 
-void ProcessTree::HandleFork(const Process &parent, const pid new_pid) {
+void ProcessTree::HandleFork(uint64_t timestamp, const Process &parent,
+                             const pid new_pid) {
   std::shared_ptr<Process> child;
   {
     absl::MutexLock lock(&mtx_);
     child = std::make_shared<Process>(new_pid, parent.effective_cred_,
-                                      parent.program_, map_[parent.pid_.pid]);
-    map_.emplace(new_pid.pid, child);
+                                      parent.program_, map_[parent.pid_]);
+    map_.emplace(new_pid, child);
   }
   for (const auto &annotator : annotators_) {
     annotator->AnnotateFork(*this, parent, *child);
   }
 }
 
-void ProcessTree::HandleExec(const Process &p, const pid new_pid,
-                             const program prog, const cred c) {
+void ProcessTree::HandleExec(uint64_t timestamp, const Process &p,
+                             const pid new_pid, const program prog,
+                             const cred c) {
   // TODO(nickmg): should struct pid be reworked and only pid_version be passed?
   assert(new_pid.pid == p.pid_.pid);
 
@@ -128,16 +141,86 @@ void ProcessTree::HandleExec(const Process &p, const pid new_pid,
       std::make_shared<const program>(prog), p.parent_);
   {
     absl::MutexLock lock(&mtx_);
-    map_.emplace(new_proc->pid_.pid, new_proc);
+    remove_at_.push_back({timestamp, p.pid_});
+    map_.emplace(new_proc->pid_, new_proc);
   }
   for (const auto &annotator : annotators_) {
     annotator->AnnotateExec(*this, p, *new_proc);
   }
 }
 
-void ProcessTree::HandleExit(const Process &p) {
+void ProcessTree::HandleExit(uint64_t timestamp, const Process &p) {
   absl::MutexLock lock(&mtx_);
-  map_.erase(p.pid_.pid);
+  remove_at_.push_back({timestamp, p.pid_});
+}
+
+bool ProcessTree::Step(int client, uint64_t timestamp) {
+  absl::MutexLock lock(&mtx_);
+  uint64_t new_cutoff = seen_timestamps_.front();
+  if (timestamp < new_cutoff) {
+    // Event timestamp is before the rolling list of seen events.
+    // This event may or may not have been processed, but be conservative and
+    // do not reprocess.
+    return false;
+  }
+
+  if (std::binary_search(seen_timestamps_.begin(), seen_timestamps_.end(),
+                         timestamp)) {
+    // Event seen, signal it should not be reprocessed.
+    return false;
+  }
+
+  auto insert_point =
+      std::find_if(seen_timestamps_.rbegin(), seen_timestamps_.rend(),
+                   [&](uint64_t x) { return x < timestamp; });
+  std::move(seen_timestamps_.begin() + 1, insert_point.base(),
+            seen_timestamps_.begin());
+  *insert_point = timestamp;
+
+  for (auto it = remove_at_.begin(); it != remove_at_.end();) {
+    if (it->first < new_cutoff) {
+      if (auto target = GetLocked(it->second);
+          target && (*target)->refcnt_ > 0) {
+        NSLog(CFSTR("tombstone %d:%d"), it->second.pid, it->second.pidversion);
+        (*target)->tombstoned_ = true;
+      } else {
+        NSLog(CFSTR("eagerly removing %d:%d"), it->second.pid,
+              it->second.pidversion);
+        map_.erase(it->second);
+      }
+      it = remove_at_.erase(it);
+    } else {
+      it++;
+    }
+  }
+
+  return true;
+}
+
+void ProcessTree::RetainProcess(const struct pid p) {
+  // TODO(nickmg): reader mutex lock since the map isn't being modified?
+  absl::MutexLock lock(&mtx_);
+  auto proc = GetLocked(p);
+  if (proc) {
+    NSLog(CFSTR("retaining pid %d:%d"), p.pid, p.pidversion);
+    (*proc)->refcnt_++;
+  } else {
+    NSLog(CFSTR("pid %d:%d retained but not in tree?"), p.pid, p.pidversion);
+  }
+}
+
+void ProcessTree::ReleaseProcess(const struct pid p) {
+  absl::MutexLock lock(&mtx_);
+  auto proc = GetLocked(p);
+  if (proc) {
+    NSLog(CFSTR("releasing pid %d:%d"), p.pid, p.pidversion);
+    if (--(*proc)->refcnt_ == 0 && (*proc)->tombstoned_) {
+      NSLog(CFSTR("cleaning up %d:%d"), p.pid, p.pidversion);
+      map_.erase(p);
+    }
+  } else {
+    NSLog(CFSTR("pid %d:%d released but not in tree???"), p.pid, p.pidversion);
+  }
 }
 
 /*
@@ -151,11 +234,22 @@ void ProcessTree::RegisterAnnotator(std::unique_ptr<Annotator> a) {
 }
 
 void ProcessTree::AnnotateProcess(const Process &p,
-                                  std::shared_ptr<const Annotator> &&a) {
+                                  std::shared_ptr<const Annotator> a) {
   absl::MutexLock lock(&mtx_);
   const Annotator &x = *a;
-  map_[p.pid_.pid]->annotations_.emplace(std::type_index(typeid(x)),
-                                         std::move(a));
+  map_[p.pid_]->annotations_.emplace(std::type_index(typeid(x)), std::move(a));
+}
+
+std::optional<pb::Annotations> ProcessTree::GetAnnotations(const pid p) {
+  auto proc = Get(p);
+  if (!proc || (*proc)->annotations_.size() == 0) {
+    return std::nullopt;
+  }
+  pb::Annotations a;
+  for (const auto &[_, annotation] : (*proc)->annotations_) {
+    if (auto x = annotation->Proto(); x) a.MergeFrom(*x);
+  }
+  return a;
 }
 
 /*
@@ -193,7 +287,12 @@ void ProcessTree::Iterate(
 std::optional<std::shared_ptr<const Process>> ProcessTree::Get(
     const pid target) const {
   absl::ReaderMutexLock lock(&mtx_);
-  auto it = map_.find(target.pid);
+  return GetLocked(target);
+}
+
+std::optional<std::shared_ptr<Process>> ProcessTree::GetLocked(
+    const pid target) const {
+  auto it = map_.find(target);
   if (it == map_.end()) {
     return std::nullopt;
   }
@@ -220,6 +319,26 @@ void ProcessTree::DebugDumpLocked(std::ostream &stream, int depth,
              << process->program_->executable << std::endl;
       DebugDumpLocked(stream, depth + 1, process->pid_.pid);
     }
+  }
+}
+
+/*
+----
+Tokens
+----
+*/
+
+ProcessToken::ProcessToken(std::shared_ptr<ProcessTree> tree,
+                           std::vector<struct pid> pids)
+    : tree_(std::move(tree)), pids_(std::move(pids)) {
+  for (const struct pid &p : pids_) {
+    tree_->RetainProcess(p);
+  }
+}
+
+ProcessToken::~ProcessToken() {
+  for (const struct pid &p : pids_) {
+    tree_->ReleaseProcess(p);
   }
 }
 

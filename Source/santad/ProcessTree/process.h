@@ -18,7 +18,16 @@ namespace process_tree {
 struct pid {
   pid_t pid;
   int pidversion;
+
+  friend bool operator==(const struct pid &lhs, const struct pid &rhs) {
+    return lhs.pid == rhs.pid && lhs.pidversion == rhs.pidversion;
+  }
 };
+
+template <typename H>
+H AbslHashValue(H h, const struct pid &p) {
+  return H::combine(std::move(h), p.pid, p.pidversion);
+}
 
 struct cred {
   uid_t uid;
@@ -69,6 +78,11 @@ class Process {
   absl::flat_hash_map<std::type_index, std::shared_ptr<const Annotator>>
       annotations_;
   std::shared_ptr<const Process> parent_;
+  // TODO(nickmg): atomic here breaks the build.
+  int refcnt_;
+  // If the process is tombstoned, the event removing it from the tree has been
+  // processed, but refcnt>0 was keeping it around.
+  bool tombstoned_;
 };
 
 }  // namespace process_tree
