@@ -81,7 +81,7 @@ class Process {
   // TODO(nickmg): atomic here breaks the build.
   int refcnt_;
   // If the process is tombstoned, the event removing it from the tree has been
-  // processed, but refcnt>0 was keeping it around.
+  // processed, but refcnt>0 keeps it alive.
   bool tombstoned_;
 };
 

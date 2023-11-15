@@ -13,17 +13,6 @@ void OriginatorAnnotator::AnnotateFork(ProcessTree &tree, const Process &parent,
     tree.AnnotateProcess(child, std::move(*annotation));
     return;
   }
-
-  if (parent.program_->executable == "/sbin/launchd") {
-    tree.AnnotateProcess(
-        child,
-        std::make_shared<OriginatorAnnotator>(
-            pb::Annotations::Originator::Annotations_Originator_LAUNCHD));
-  } else if (parent.program_->executable == "/usr/sbin/cron") {
-    tree.AnnotateProcess(
-        child, std::make_shared<OriginatorAnnotator>(
-                   pb::Annotations::Originator::Annotations_Originator_CRON));
-  }
 }
 
 void OriginatorAnnotator::AnnotateExec(ProcessTree &tree,
@@ -31,6 +20,19 @@ void OriginatorAnnotator::AnnotateExec(ProcessTree &tree,
                                        const Process &new_process) {
   if (auto annotation = tree.GetAnnotation<OriginatorAnnotator>(orig_process)) {
     tree.AnnotateProcess(new_process, std::move(*annotation));
+    return;
+  }
+
+  if (new_process.program_->executable == "/usr/bin/login") {
+    tree.AnnotateProcess(
+        new_process,
+        std::make_shared<OriginatorAnnotator>(
+            pb::Annotations::Originator::Annotations_Originator_LOGIN));
+  } else if (new_process.program_->executable == "/usr/sbin/cron") {
+    tree.AnnotateProcess(
+        new_process,
+        std::make_shared<OriginatorAnnotator>(
+            pb::Annotations::Originator::Annotations_Originator_CRON));
   }
 }
 

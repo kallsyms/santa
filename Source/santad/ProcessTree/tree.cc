@@ -202,7 +202,7 @@ void ProcessTree::RetainProcess(const struct pid p) {
   absl::MutexLock lock(&mtx_);
   auto proc = GetLocked(p);
   if (proc) {
-    NSLog(CFSTR("retaining pid %d:%d"), p.pid, p.pidversion);
+    // NSLog(CFSTR("retaining pid %d:%d"), p.pid, p.pidversion);
     (*proc)->refcnt_++;
   } else {
     NSLog(CFSTR("pid %d:%d retained but not in tree?"), p.pid, p.pidversion);
@@ -213,7 +213,7 @@ void ProcessTree::ReleaseProcess(const struct pid p) {
   absl::MutexLock lock(&mtx_);
   auto proc = GetLocked(p);
   if (proc) {
-    NSLog(CFSTR("releasing pid %d:%d"), p.pid, p.pidversion);
+    // NSLog(CFSTR("releasing pid %d:%d"), p.pid, p.pidversion);
     if (--(*proc)->refcnt_ == 0 && (*proc)->tombstoned_) {
       NSLog(CFSTR("cleaning up %d:%d"), p.pid, p.pidversion);
       map_.erase(p);

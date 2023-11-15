@@ -5,7 +5,7 @@ package process_tree.pb;
 message Annotations {
   enum Originator {
     UNSPECIFIED = 0;
-    LAUNCHD = 1;
+    LOGIN = 1;
     CRON = 2;
   }
 
