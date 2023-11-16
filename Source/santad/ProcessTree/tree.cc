@@ -97,11 +97,8 @@ void ProcessTree::BackfillInsertChildren(
   // We could also pull e.g. start time, pgid, associated tty, etc. from
   // bsdinfo here.
   auto proc = std::make_shared<Process>(
-      unlinked_proc.pid_,
+      unlinked_proc.pid_, unlinked_proc.effective_cred_,
       // Re-use shared pointers from parent if value equivalent
-      (parent && *(unlinked_proc.effective_cred_) == *(parent->effective_cred_))
-          ? parent->effective_cred_
-          : unlinked_proc.effective_cred_,
       (parent && *(unlinked_proc.program_) == *(parent->program_))
           ? parent->program_
           : unlinked_proc.program_,
@@ -150,8 +147,7 @@ void ProcessTree::HandleExec(uint64_t timestamp, const Process &p,
   assert(new_pid.pid == p.pid_.pid);
 
   auto new_proc = std::make_shared<Process>(
-      new_pid, std::make_shared<const cred>(c),
-      std::make_shared<const program>(prog), p.parent_);
+      new_pid, c, std::make_shared<const program>(prog), p.parent_);
   {
     absl::MutexLock lock(&mtx_);
     remove_at_.push_back({timestamp, p.pid_});

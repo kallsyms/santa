@@ -123,10 +123,9 @@ absl::StatusOr<Process> LoadPID(pid_t pid) {
   return Process(
       (struct pid){.pid = audit_token_to_pid(token),
                    .pidversion = audit_token_to_pidversion(token)},
-      std::make_shared<struct cred>((struct cred){
+      (struct cred){
           .uid = audit_token_to_euid(token), .gid = audit_token_to_egid(token),
-          // TODO username, group
-      }),
+      },
       std::make_shared<struct program>((struct program){
           .executable = path,
           .arguments = args,

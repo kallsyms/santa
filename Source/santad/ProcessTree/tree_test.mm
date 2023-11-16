@@ -101,7 +101,7 @@ using namespace process_tree;
   const struct pid child_exec_pid = {.pid = 2, .pidversion = 3};
   const struct program child_exec_prog = {.executable = "/bin/bash", .arguments = {"/bin/bash", "-i"}};
   self.tree->Step(self.client_id, event_id);
-  self.tree->HandleExec(event_id++, *child, child_exec_pid, child_exec_prog, *child->effective_cred_);
+  self.tree->HandleExec(event_id++, *child, child_exec_pid, child_exec_prog, child->effective_cred_);
 
   child_opt = self.tree->Get(child_exec_pid);
   XCTAssertTrue(child_opt.has_value());
@@ -109,7 +109,7 @@ using namespace process_tree;
   XCTAssertEqual(child->pid_, child_exec_pid);
   XCTAssertEqual(*child->program_, child_exec_prog);
   // Assert we specifically re-use the same cred struct pointer.
-  XCTAssertEqual(*child->effective_cred_, *self.init_proc->effective_cred_);
+  XCTAssertEqual(child->effective_cred_, self.init_proc->effective_cred_);
 }
 
 // We can't test the full backfill process, as retrieving information on
@@ -125,8 +125,8 @@ using namespace process_tree;
   XCTAssertEqual(proc.pid_.pid, audit_token_to_pid(self_tok));
   XCTAssertEqual(proc.pid_.pidversion, audit_token_to_pidversion(self_tok));
 
-  XCTAssertEqual(proc.effective_cred_->uid, geteuid());
-  XCTAssertEqual(proc.effective_cred_->gid, getegid());
+  XCTAssertEqual(proc.effective_cred_.uid, geteuid());
+  XCTAssertEqual(proc.effective_cred_.gid, getegid());
 
   [[[NSProcessInfo processInfo] arguments]
     enumerateObjectsUsingBlock:^(NSString *_Nonnull obj, NSUInteger idx, BOOL *_Nonnull stop){

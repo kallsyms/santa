@@ -73,7 +73,7 @@ class ProcessTree;
 
 class Process {
  public:
-  explicit Process(pid pid, std::shared_ptr<const cred> cred,
+  explicit Process(const pid pid, const cred cred,
                    std::shared_ptr<const program> program,
                    std::shared_ptr<const Process> parent)
       : pid_(pid),
@@ -84,7 +84,7 @@ class Process {
 
   // Const "attributes" are public
   const struct pid pid_;
-  const std::shared_ptr<const cred> effective_cred_;
+  const struct cred effective_cred_;
   const std::shared_ptr<const program> program_;
 
  private:

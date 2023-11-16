@@ -32,7 +32,7 @@ std::shared_ptr<const Process> ProcessTreeTestPeer::InsertInit() {
       .pidversion = 1,
     };
     auto proc = std::make_shared<Process>(
-      initpid, std::make_shared<cred>((cred){.uid = 0, .gid = 0}),
+      initpid, (cred){.uid = 0, .gid = 0},
       std::make_shared<program>((program){.executable = "/init", .arguments = {"/init"}}),
       nullptr
     );
