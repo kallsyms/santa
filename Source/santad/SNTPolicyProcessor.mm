@@ -320,7 +320,7 @@
                                  certificateSHA256:(nullable NSString *)certificateSHA256
                                             teamID:(nullable NSString *)teamID
                                          signingID:(nullable NSString *)signingID 
-                                         context:(santa::santad::cel::Context)context {
+                                        celContext:(santa::santad::cel::Context)context {
   MOLCodesignChecker *csInfo;
   NSError *error;
 

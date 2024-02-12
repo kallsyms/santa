@@ -1,5 +1,6 @@
 #include "evaluator.h"
 
+#include "absl/status/statusor.h"
 #include "eval/public/activation.h"
 #include "eval/public/activation_bind_helper.h"
 #include "eval/public/builtin_func_registrar.h"
@@ -14,9 +15,6 @@ namespace santa::santad::cel {
 namespace cel_parser = google::api::expr::parser;
 namespace cel_runtime = google::api::expr::runtime;
 
-// used for both protobuf and the CEL runtime.
-using namespace google;
-
 absl::StatusOr<bool> santa::santad::cel::Evaluator::Evaluate(
     const std::string program, struct santa::santad::cel::Context ctx) {
   auto parse_status = cel_parser::Parse(program);
@@ -28,7 +26,7 @@ absl::StatusOr<bool> santa::santad::cel::Evaluator::Evaluate(
   // retrieve the parsed expression.
   auto parsed_expr = parse_status.value();
 
-  protobuf::Arena arena;
+  google::protobuf::Arena arena;
 
   // Register default functions
   cel_runtime::InterpreterOptions options;

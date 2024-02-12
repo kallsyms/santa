@@ -183,7 +183,8 @@ double watchdogRAMPeak = 0;
                                        fileSHA256:fileSHA256
                                 certificateSHA256:certificateSHA256
                                            teamID:teamID
-                                        signingID:signingID]
+                                        signingID:signingID
+                                       celContext:(santa::santad::cel::Context){.timestamp = 0}]
           .decision);
 }
 

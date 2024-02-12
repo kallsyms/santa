@@ -11,18 +11,19 @@ srcs = ["evaluator.cc"],
 copts = ["-Wno-unused-private-field"],
 #cxxopts = ["-Wno-unused-private-field"],
 deps = [ 
-      "@com_google_absl//absl/status:status",
+      "@com_google_absl//absl/status:statusor",
       "@com_google_cel_cpp//eval/public:activation",
       "@com_google_cel_cpp//eval/public:activation_bind_helper",
       "@com_google_cel_cpp//eval/public:cel_expr_builder_factory",
       "@com_google_cel_cpp//eval/public:builtin_func_registrar",
       "@com_google_cel_cpp//eval/public/structs:cel_proto_wrapper",
+      "@com_google_cel_cpp//eval/public/containers:container_backed_list_impl",
+      "@com_google_cel_cpp//eval/public/containers:container_backed_map_impl",
       "@com_google_cel_cpp//eval/public/containers:field_access",
       "@com_google_cel_cpp//parser",
       "@com_google_cel_cpp//eval/public:cel_expression",
       "@com_google_cel_cpp//eval/public:cel_options",
       "@com_google_cel_cpp//eval/public:cel_value",
-      "@com_google_cel_cpp//extensions/protobuf:value",
       ]
 )
 
@@ -36,6 +37,5 @@ santa_unit_test(
             "@com_google_cel_cpp//eval/public:cel_options",
             "@com_google_cel_cpp//eval/public:cel_value",
             "@com_google_cel_cpp//base:value",
-            "@com_google_cel_cpp//extensions/protobuf:value",
     ],
 )

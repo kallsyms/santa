@@ -62,6 +62,7 @@
                                         fileSHA256:(nullable NSString *)fileSHA256
                                  certificateSHA256:(nullable NSString *)certificateSHA256
                                             teamID:(nullable NSString *)teamID
-                                         signingID:(nullable NSString *)signingID;
+                                         signingID:(nullable NSString *)signingID
+                                        celContext:(santa::santad::cel::Context)context ;
 
 @end
