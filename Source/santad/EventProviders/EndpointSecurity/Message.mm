@@ -59,4 +59,7 @@ std::string Message::GetProcessName(pid_t pid) const {
   }
 }
 
+uint32_t ExecMessage::ArgCount() const { return esapi_->ExecArgCount(&es_msg_->event.exec); }
+es_string_token_t ExecMessage::Arg(uint32_t index) const { return esapi_->ExecArg(&es_msg_->event.exec, index); }
+
 }  // namespace santa::santad::event_providers::endpoint_security

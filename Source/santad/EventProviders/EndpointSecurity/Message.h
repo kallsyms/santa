@@ -41,20 +41,58 @@ class Message {
   const es_message_t* operator->() const { return es_msg_; }
   const es_message_t& operator*() const { return *es_msg_; }
 
-  // Helper to get the API associated with this message.
-  // Used for things like es_exec_arg_count.
-  // We should ideally rework this to somehow present these functions as methods on the Message,
-  // however this would be a bit of a bigger lift.
-  std::shared_ptr<EndpointSecurityAPI> ESAPI() const { return esapi_; }
+  template<typename Visitor>
+  decltype(auto) variant(Visitor&& visitor) const;
 
   std::string ParentProcessName() const;
 
- private:
+ protected:
   std::shared_ptr<EndpointSecurityAPI> esapi_;
   const es_message_t* es_msg_;
 
   std::string GetProcessName(pid_t pid) const;
 };
+
+class ForkMessage : public Message {
+ public:
+  ForkMessage(const Message& other);
+  const es_event_fork_t* operator->() const { return &es_msg_->event.fork; }
+};
+
+class ExecMessage : public Message {
+ public:
+  ExecMessage(const Message& other);
+  const es_event_exec_t* operator->() const { return &es_msg_->event.exec; }
+  uint32_t ArgCount() const;
+  es_string_token_t Arg(uint32_t index) const;
+};
+
+class ExitMessage : public Message {
+ public:
+  ExitMessage(const Message& other);
+  const es_event_exit_t* operator->() const { return &es_msg_->event.exit; }
+};
+
+using MessageVariant = std::variant<ForkMessage, ExecMessage, ExitMessage, Message>;
+
+template<typename Visitor>
+decltype(auto) Message::variant(Visitor&& visitor) const {
+  MessageVariant v = Message(*this);
+  switch (es_msg_->event_type) {
+    case ES_EVENT_TYPE_NOTIFY_FORK:
+      v.emplace<ForkMessage>(*this);
+      break;
+    case ES_EVENT_TYPE_AUTH_EXEC:
+    case ES_EVENT_TYPE_NOTIFY_EXEC:
+      v.emplace<ExecMessage>(*this);
+      break;
+    case ES_EVENT_TYPE_NOTIFY_EXIT:
+      v.emplace<ExitMessage>(*this);
+    default:
+      break;
+  }
+  return std::visit(visitor, v);
+}
 
 }  // namespace santa::santad::event_providers::endpoint_security
 

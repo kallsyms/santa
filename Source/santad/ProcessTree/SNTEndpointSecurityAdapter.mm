@@ -25,8 +25,17 @@
 
 using santa::santad::event_providers::endpoint_security::EndpointSecurityAPI;
 using santa::santad::event_providers::endpoint_security::Message;
+using santa::santad::event_providers::endpoint_security::ForkMessage;
+using santa::santad::event_providers::endpoint_security::ExecMessage;
+using santa::santad::event_providers::endpoint_security::ExitMessage;
 
 namespace santa::santad::process_tree {
+
+// std::visit overload pattern
+template<class... Ts>
+struct overloaded : Ts... { using Ts::operator()...; };
+template<class... Ts>
+overloaded(Ts...) -> overloaded<Ts...>;
 
 void InformFromESEvent(ProcessTree &tree, const Message &msg) {
   struct Pid event_pid = PidFromAuditToken(msg->process->audit_token);
@@ -36,38 +45,36 @@ void InformFromESEvent(ProcessTree &tree, const Message &msg) {
     return;
   }
 
-  std::shared_ptr<EndpointSecurityAPI> esapi = msg.ESAPI();
-
-  switch (msg->event_type) {
-    case ES_EVENT_TYPE_AUTH_EXEC:
-    case ES_EVENT_TYPE_NOTIFY_EXEC: {
+  msg.variant(overloaded{
+    [&tree, proc](ForkMessage fork) {
+      tree.HandleFork(Message(fork)->mach_time, **proc,
+                      PidFromAuditToken(fork->child->audit_token));
+    },
+    [&tree, proc](ExecMessage exec) {
       std::vector<std::string> args;
-      args.reserve(esapi->ExecArgCount(&msg->event.exec));
-      for (int i = 0; i < esapi->ExecArgCount(&msg->event.exec); i++) {
-        es_string_token_t arg = esapi->ExecArg(&msg->event.exec, i);
+      args.reserve(exec.ArgCount());
+      for (int i = 0; i < exec.ArgCount(); i++) {
+        es_string_token_t arg = exec.Arg(i);
         args.push_back(std::string(arg.data, arg.length));
       }
 
-      es_string_token_t executable = msg->event.exec.target->executable->path;
+      es_string_token_t executable = exec->target->executable->path;
       tree.HandleExec(
-        msg->mach_time, **proc, PidFromAuditToken(msg->event.exec.target->audit_token),
+        Message(exec)->mach_time, **proc, PidFromAuditToken(exec->target->audit_token),
         (struct Program){.executable = std::string(executable.data, executable.length),
                          .arguments = args},
         (struct Cred){
-          .uid = audit_token_to_euid(msg->event.exec.target->audit_token),
-          .gid = audit_token_to_egid(msg->event.exec.target->audit_token),
+          .uid = audit_token_to_euid(exec->target->audit_token),
+          .gid = audit_token_to_egid(exec->target->audit_token),
         });
-
-      break;
+    },
+    [&tree, proc](ExitMessage exit) {
+      tree.HandleExit(Message(exit)->mach_time, **proc);
+    },
+    [](Message m) {
+      // TODO: programming error
     }
-    case ES_EVENT_TYPE_NOTIFY_FORK: {
-      tree.HandleFork(msg->mach_time, **proc,
-                      PidFromAuditToken(msg->event.fork.child->audit_token));
-      break;
-    }
-    case ES_EVENT_TYPE_NOTIFY_EXIT: tree.HandleExit(msg->mach_time, **proc); break;
-    default: return;
-  }
+  });
 }
 
 }  // namespace santa::santad::process_tree
